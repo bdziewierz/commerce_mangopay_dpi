@@ -1,0 +1,12 @@
+{
+  "name": "drupal/commerce_mangopay",
+  "type": "drupal-module",
+  "description": "Drupal MANGOPAY payment gateway for Drupal Commerce 2.0",
+  "license": "GPL-2.0+",
+  "require": {
+    "drupal/core": "~8.3",
+    "drupal/commerce": "^2.0@RC",
+    "mangopay/php-sdk-v2": "^2.3"
+  },
+  "minimum-stability": "dev"
+}
