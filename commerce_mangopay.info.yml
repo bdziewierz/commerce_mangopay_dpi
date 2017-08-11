@@ -1,0 +1,8 @@
+name: Commerce MANGOPAY
+type: module
+description: 'Provides payment gateway for MANGOPAY.'
+package: Commerce
+core: 8.x
+
+dependencies:
+  - commerce:commerce_payment
