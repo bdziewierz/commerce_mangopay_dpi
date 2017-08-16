@@ -1,0 +1,36 @@
+<?php
+
+/**
+ * @param $vars
+ */
+function commerce_mangopay_preprocess_input(&$variables) {
+  if (!empty($variables['element']['#commerce_mangopay_data'])) {
+    _commerce_mangopay_clear_identification($variables);
+  }
+}
+
+
+/**
+ * @param $vars
+ */
+function commerce_mangopay_preprocess_select(&$variables) {
+  if (!empty($variables['element']['#commerce_mangopay_data'])) {
+    _commerce_mangopay_clear_identification($variables);
+  }
+}
+
+/**
+ * Remove name attribute from the PCI sensitive form elements.
+ * submit those offsite to MANGOPAY, they should never reach Drupal server
+ * directly.
+ *
+ * @param $variables
+ */
+function _commerce_mangopay_clear_identification(&$variables) {
+  unset($variables['element']['#name']);
+  unset($variables['element']['#attributes']['name']);
+  unset($variables['attributes']['name']);
+  unset($variables['element']['#id']);
+  unset($variables['element']['#attributes']['id']);
+  unset($variables['attributes']['id']);
+}
