@@ -1,0 +1,8 @@
+commerce_mangopay.create_user:
+  path: 'commerce-mangopay/get-user/{payment_gateway_id}'
+  defaults:
+    _controller: '\Drupal\commerce_mangopay\Controller\CommerceMangopayController::getUser'
+  options:
+    no_cache: TRUE
+  requirements:
+    _access: 'TRUE'

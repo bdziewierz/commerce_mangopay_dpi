@@ -24,6 +24,7 @@ use Drupal\Core\Form\FormStateInterface;
  *   forms = {
  *     "add-payment-method" = "Drupal\commerce_mangopay\PluginForm\Onsite\PaymentMethodAddForm",
  *   },
+ *   modes = {"sandbox" = "Sandbox", "production" = "Production"},
  *   payment_method_types = {"credit_card"},
  *   credit_card_types = {
  *     "amex", "dinersclub", "discover", "jcb", "maestro", "mastercard", "visa",
@@ -47,7 +48,8 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    */
   public function defaultConfiguration() {
     return [
-      'api_key' => '',
+      'client_id' => '',
+      'client_pass' => '',
     ] + parent::defaultConfiguration();
   }
 
@@ -57,12 +59,19 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
 
-    // Example credential. Also needs matching schema in
-    // config/schema/$your_module.schema.yml.
-    $form['api_key'] = [
+    $form['client_id'] = [
       '#type' => 'textfield',
-      '#title' => $this->t('API key'),
-      '#default_value' => $this->configuration['api_key'],
+      '#title' => $this->t('Client Id'),
+      '#description' => $this->t('Please enter your MANGOPAY client id applicable to the environment (mode) you\'re using.'),
+      '#default_value' => $this->configuration['client_id'],
+      '#required' => TRUE,
+    ];
+
+    $form['client_pass'] = [
+      '#type' => 'password',
+      '#title' => $this->t('Client Password'),
+      '#description' => $this->t('Please enter your MANGOPAY client password applicable to the environment (mode) you\'re using.'),
+      '#default_value' => $this->configuration['client_pass'],
       '#required' => TRUE,
     ];
 
@@ -77,7 +86,8 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
 
     if (!$form_state->getErrors()) {
       $values = $form_state->getValue($form['#parents']);
-      $this->configuration['api_key'] = $values['api_key'];
+      $this->configuration['client_id'] = $values['client_id'];
+      $this->configuration['client_pass'] = $values['client_pass'];
     }
   }
 
@@ -223,4 +233,100 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
     $payment_method->delete();
   }
 
+  /**
+   *
+   */
+  public function createMangopayApi() {
+    // Retrieve configuration of the payment gateway
+    $mode = $this->getConfiguration()['mode'];
+    $client_id = $this->getConfiguration()['client_id'];
+    $client_pass = $this->getConfiguration()['client_pass'];
+    switch($mode) {
+      case 'production':
+        $base_url = 'https://api.mangopay.com';
+        break;
+      default:
+        $base_url = 'https://api.sandbox.mangopay.com';
+        break;
+    }
+
+    // Create instance of MangoPayApi SDK
+    $mangopay_api = new \MangoPay\MangoPayApi();
+    $mangopay_api->Config->BaseUrl = $base_url;
+    $mangopay_api->Config->ClientId = $client_id;
+    $mangopay_api->Config->ClientPassword = $client_pass;
+    $mangopay_api->Config->TemporaryFolder = file_directory_temp();
+
+    return $mangopay_api;
+  }
+
+  /**
+   * @param $mangopay_api
+   * @param $first_name
+   * @param $last_name
+   * @param $dob
+   * @param $email
+   * @param $country
+   * @param $address_line1
+   * @param $address_line2
+   * @param $city
+   * @param $postal_code
+   * @param string $occupation
+   * @param string $income_range
+   * @param string $tag
+   * @return mixed
+   */
+  public function createNaturalUser($mangopay_api, $first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '') {
+    $user = new \MangoPay\UserNatural();
+    $user->FirstName = $first_name;
+    $user->LastName = $last_name;
+    $user->Email = $email;
+    $user->CountryOfResidence = $country;
+    $user->Nationality = $country; // TODO: Fix me - how to get real country of residence?
+    $user->Birthday = $dob; // TODO: Fix me - how to get real birthday?
+    $user->Occupation = $occupation;
+    $user->IncomeRange = $income_range;
+    $user->Address = new \MangoPay\Address();
+    $user->Address->AddressLine1 = $address_line1;
+    $user->Address->AddressLine2 = $address_line2;
+    $user->Address->City = $city;
+    $user->Address->PostalCode = $postal_code;
+    $user->Address->Country = $country;
+    $user->Tag = $tag;
+    return $mangopay_api->Users->Create($user);
+  }
+
+  /**
+   * @param $mangopay_api
+   * @param $user_id
+   * @param $currency_code
+   * @param $description
+   * @param string $tag
+   * @return mixed
+   */
+  public function createWallet($mangopay_api, $user_id, $currency_code, $description, $tag = '') {
+    $wallet = new \MangoPay\Wallet();
+    $wallet->Owners = [$user_id];
+    $wallet->Description = $description;
+    $wallet->Currency = $currency_code;
+    $wallet->Tag = $tag;
+    return $mangopay_api->Wallets->Create($wallet);
+  }
+
+  /**
+   * @param $mangopay_api
+   * @param $user_id
+   * @param $currency_code
+   * @param $card_type
+   * @param string $tag
+   * @return mixed
+   */
+  public function createCardRegistration($mangopay_api, $user_id, $currency_code, $card_type, $tag = '') {
+    $cardRegister = new \MangoPay\CardRegistration();
+    $cardRegister->UserId = $user_id;
+    $cardRegister->Currency = $currency_code;
+    $cardRegister->CardType = $card_type;
+    $cardRegister->Tag = $tag;
+    return $mangopay_api->CardRegistrations->Create($cardRegister);
+  }
 }

@@ -1,13 +1,10 @@
 commerce_payment.commerce_payment_gateway.plugin.onsite:
   type: commerce_payment_gateway_configuration
   mapping:
-    api_key:
+    client_id:
       type: string
-      label: 'API key'
+      label: 'Client Id'
+    client_pass:
+      type: string
+      label: 'Client Pass'
 
-commerce_payment.commerce_payment_gateway.plugin.offsite_redirect:
-  type: commerce_payment_gateway_configuration
-  mapping:
-    redirect_method:
-      type: string
-      label: 'Redirect method'
