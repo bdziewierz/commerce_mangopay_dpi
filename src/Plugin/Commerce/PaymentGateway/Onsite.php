@@ -5,7 +5,9 @@ namespace Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway;
 use Drupal\commerce_payment\CreditCard;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Entity\PaymentMethodInterface;
+use Drupal\commerce_payment\Exception\DeclineException;
 use Drupal\commerce_payment\Exception\HardDeclineException;
+use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager;
 use Drupal\commerce_payment\PaymentTypeManager;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OnsitePaymentGatewayBase;
@@ -25,7 +27,7 @@ use Drupal\Core\Form\FormStateInterface;
  *     "add-payment-method" = "Drupal\commerce_mangopay\PluginForm\Onsite\PaymentMethodAddForm",
  *   },
  *   modes = {"sandbox" = "Sandbox", "production" = "Production"},
- *   payment_method_types = {"credit_card"},
+ *   payment_method_types = {"commerce_mangopay_credit_card"},
  *   credit_card_types = {
  *     "amex", "dinersclub", "discover", "jcb", "maestro", "mastercard", "visa",
  *   },
@@ -34,13 +36,35 @@ use Drupal\Core\Form\FormStateInterface;
 class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
 
   /**
+   * @var \MangoPay\MangoPayApi
+   */
+  protected $api;
+
+  /**
    * {@inheritdoc}
    */
   public function __construct(array $configuration, $plugin_id, $plugin_definition, EntityTypeManagerInterface $entity_type_manager, PaymentTypeManager $payment_type_manager, PaymentMethodTypeManager $payment_method_type_manager, TimeInterface $time) {
     parent::__construct($configuration, $plugin_id, $plugin_definition, $entity_type_manager, $payment_type_manager, $payment_method_type_manager, $time);
 
-    // You can create an instance of the SDK here and assign it to $this->api.
-    // Or inject Guzzle when there's no suitable SDK.
+    // Construct MANGOPAY Api object
+    $mode = $this->getConfiguration()['mode'];
+    $client_id = $this->getConfiguration()['client_id'];
+    $client_pass = $this->getConfiguration()['client_pass'];
+    switch($mode) {
+      case 'production':
+        $base_url = 'https://api.mangopay.com';
+        break;
+      default:
+        $base_url = 'https://api.sandbox.mangopay.com';
+        break;
+    }
+
+    // Create instance of MangoPayApi SDK
+    $this->api = new \MangoPay\MangoPayApi();
+    $this->api->Config->BaseUrl = $base_url;
+    $this->api->Config->ClientId = $client_id;
+    $this->api->Config->ClientPassword = $client_pass;
+    $this->api->Config->TemporaryFolder = file_directory_temp();
   }
 
   /**
@@ -96,61 +120,79 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    */
   public function createPayment(PaymentInterface $payment, $capture = TRUE) {
     $this->assertPaymentState($payment, ['new']);
+
     $payment_method = $payment->getPaymentMethod();
     $this->assertPaymentMethod($payment_method);
 
-    // Add a built in test for testing decline exceptions.
-    /** @var \Drupal\address\Plugin\Field\FieldType\AddressItem $billing_address */
-    if ($billing_address = $payment_method->getBillingProfile()) {
-      $billing_address = $payment_method->getBillingProfile()->get('address')->first();
-      if ($billing_address->getPostalCode() == '53140') {
-        throw new HardDeclineException('The payment was declined');
-      }
+    $amount = doubleval($payment->getAmount()->getNumber()) * 100;
+    $currency_code = $payment->getAmount()->getCurrencyCode();
+    $card_id = $payment_method->getRemoteId();
+    $user_id = $payment_method->user_id->value;
+    $wallet_id = $payment_method->wallet_id->value;
+
+    // TODO: Do we have to make a call here? Why not storing this?
+    $card = $this->api->Cards->Get($card_id);
+
+    // Create pay-in CARD DIRECT
+    $pay_in = new \MangoPay\PayIn();
+    $pay_in->CreditedWalletId = $wallet_id;
+    $pay_in->AuthorId = $user_id;
+    $pay_in->DebitedFunds = new \MangoPay\Money();
+    $pay_in->DebitedFunds->Amount = $amount;
+    $pay_in->DebitedFunds->Currency = $currency_code;
+    $pay_in->Fees = new \MangoPay\Money();
+    $pay_in->Fees->Amount = 0;
+    $pay_in->Fees->Currency = $currency_code;
+
+    // Payment type as CARD
+    $pay_in->PaymentDetails = new \MangoPay\PayInPaymentDetailsCard();
+    $pay_in->PaymentDetails->CardType = $card->CardType;
+    $pay_in->PaymentDetails->CardId = $card->Id;
+
+    // Execution type as DIRECT
+    $pay_in->ExecutionDetails = new \MangoPay\PayInExecutionDetailsDirect();
+    $pay_in->ExecutionDetails->SecureModeReturnURL = 'http://test.com';
+
+    try {
+      $result = $this->api->PayIns->Create($pay_in);
+    } catch(\Exception $e) {
+      ksm($e);
+      throw new PaymentGatewayException('Unexpected error processing payment method');
     }
 
-    // Perform the create payment request here, throw an exception if it fails.
-    // See \Drupal\commerce_payment\Exception for the available exceptions.
-    // Remember to take into account $capture when performing the request.
-    $amount = $payment->getAmount();
-    $payment_method_token = $payment_method->getRemoteId();
-    // The remote ID returned by the request.
-    $remote_id = '123456';
-    $next_state = $capture ? 'completed' : 'authorization';
+    switch($result->Status) {
+      case \MangoPay\PayInStatus::Failed:
+        ksm($result);
 
-    $payment->setState($next_state);
-    $payment->setRemoteId($remote_id);
-    $payment->save();
-  }
+        // TODO: Handle various responses - https://docs.mangopay.com/guide/errors
+        // 3DS
+        // Soft decline
+        // Hard decline
+        // Etc.
+        switch($result->ResultCode) {
+          default:
+            throw new DeclineException('Please try a different payment method');
+        }
+      break;
 
-  /**
-   * {@inheritdoc}
-   */
-  public function capturePayment(PaymentInterface $payment, Price $amount = NULL) {
-    $this->assertPaymentState($payment, ['authorization']);
-    // If not specified, capture the entire amount.
-    $amount = $amount ?: $payment->getAmount();
+      // 3DS / Secure Mode, needs further processing
+      case \MangoPay\PayInStatus::Created:
+        ksm($result);
+        
+        
+        throw new PaymentGatewayException('Secure mode not supported yet');
+        break;
 
-    // Perform the capture request here, throw an exception if it fails.
-    // See \Drupal\commerce_payment\Exception for the available exceptions.
-    $remote_id = $payment->getRemoteId();
-    $number = $amount->getNumber();
+      // Success, mark payment as completed and continue
+      case \MangoPay\PayInStatus::Succeeded:
+        $payment->setState('completed');
+        $payment->setRemoteId($result->Id);
+        $payment->save();
+        break;
 
-    $payment->setState('completed');
-    $payment->setAmount($amount);
-    $payment->save();
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function voidPayment(PaymentInterface $payment) {
-    $this->assertPaymentState($payment, ['authorization']);
-    // Perform the void request here, throw an exception if it fails.
-    // See \Drupal\commerce_payment\Exception for the available exceptions.
-    $remote_id = $payment->getRemoteId();
-
-    $payment->setState('authorization_voided');
-    $payment->save();
+      default:
+        throw new PaymentGatewayException('Unexpected error processing payment method');
+    }
   }
 
   /**
@@ -194,26 +236,25 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
     }
 
     // We use Mangopay's User Id and Wallet Id combination as Remote Customer Id
-    $remote_user_wallet = $payment_details['card_id'] . ':' . $payment_details['wallet_id'];
+    $remote_customer_id = $payment_details['card_id'] . ':' . $payment_details['wallet_id'];
     $owner = $payment_method->getOwner();
     if ($owner && $owner->isAuthenticated()) {
-      $current_remote_user_wallet = $this->getRemoteCustomerId($owner);
-      if (empty($current_remote_user_wallet) || $current_remote_user_wallet != $remote_user_wallet) {
-        $this->setRemoteCustomerId($owner, $remote_user_wallet);
+      $current_remote_customer_id = $this->getRemoteCustomerId($owner);
+      if (empty($current_remote_customer_id) || $current_remote_customer_id != $remote_customer_id) {
+        $this->setRemoteCustomerId($owner, $remote_customer_id);
         $owner->save();
       }
     }
 
-    // Set card type, alias and remote ID..
+    // Set relevant details on payment method object.
+    $payment_method->user_id = $payment_details['user_id'];
+    $payment_method->wallet_id = $payment_details['wallet_id'];
     $payment_method->card_type = $payment_details['card_type'];
     $payment_method->card_number = $payment_details['card_alias'];
     $payment_method->card_exp_month = $payment_details['expiration']['month'];
     $payment_method->card_exp_year = $payment_details['expiration']['year'];
-    $expires = CreditCard::calculateExpirationTimestamp($payment_details['expiration']['month'], $payment_details['expiration']['year']);
-    // The remote ID returned by the request.
-    
     $payment_method->setRemoteId($payment_details['card_id']);
-    $payment_method->setExpiresTime($expires);
+    $payment_method->setExpiresTime(CreditCard::calculateExpirationTimestamp($payment_details['expiration']['month'], $payment_details['expiration']['year']));
     $payment_method->save();
   }
 
@@ -225,33 +266,16 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
     // See \Drupal\commerce_payment\Exception for the available exceptions.
     // Delete the local entity.
     $payment_method->delete();
+
+    // TODO: Instruct MANGOPAY API to remove credit card.
   }
 
   /**
-   *
+   * 
+   * @return \MangoPay\MangoPayApi
    */
-  public function createMangopayApi() {
-    // Retrieve configuration of the payment gateway
-    $mode = $this->getConfiguration()['mode'];
-    $client_id = $this->getConfiguration()['client_id'];
-    $client_pass = $this->getConfiguration()['client_pass'];
-    switch($mode) {
-      case 'production':
-        $base_url = 'https://api.mangopay.com';
-        break;
-      default:
-        $base_url = 'https://api.sandbox.mangopay.com';
-        break;
-    }
-
-    // Create instance of MangoPayApi SDK
-    $mangopay_api = new \MangoPay\MangoPayApi();
-    $mangopay_api->Config->BaseUrl = $base_url;
-    $mangopay_api->Config->ClientId = $client_id;
-    $mangopay_api->Config->ClientPassword = $client_pass;
-    $mangopay_api->Config->TemporaryFolder = file_directory_temp();
-
-    return $mangopay_api;
+  public function getApi() {
+    return $this->api;
   }
 
   /**
@@ -270,14 +294,14 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    * @param string $tag
    * @return mixed
    */
-  public function createNaturalUser($mangopay_api, $first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '') {
+  public function createNaturalUser($first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '') {
     $user = new \MangoPay\UserNatural();
     $user->FirstName = $first_name;
     $user->LastName = $last_name;
     $user->Email = $email;
     $user->CountryOfResidence = $country;
-    $user->Nationality = $country; // TODO: Fix me - how to get real country of residence?
-    $user->Birthday = $dob; // TODO: Fix me - how to get real birthday?
+    $user->Nationality = $country;
+    $user->Birthday = $dob;
     $user->Occupation = $occupation;
     $user->IncomeRange = $income_range;
     $user->Address = new \MangoPay\Address();
@@ -287,7 +311,7 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
     $user->Address->PostalCode = $postal_code;
     $user->Address->Country = $country;
     $user->Tag = $tag;
-    return $mangopay_api->Users->Create($user);
+    return $this->api->Users->Create($user);
   }
 
   /**
@@ -298,13 +322,13 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    * @param string $tag
    * @return mixed
    */
-  public function createWallet($mangopay_api, $user_id, $currency_code, $description, $tag = '') {
+  public function createWallet($user_id, $currency_code, $description, $tag = '') {
     $wallet = new \MangoPay\Wallet();
     $wallet->Owners = [$user_id];
     $wallet->Description = $description;
     $wallet->Currency = $currency_code;
     $wallet->Tag = $tag;
-    return $mangopay_api->Wallets->Create($wallet);
+    return $this->api->Wallets->Create($wallet);
   }
 
   /**
@@ -315,12 +339,12 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    * @param string $tag
    * @return mixed
    */
-  public function createCardRegistration($mangopay_api, $user_id, $currency_code, $card_type, $tag = '') {
+  public function createCardRegistration($user_id, $currency_code, $card_type, $tag = '') {
     $cardRegister = new \MangoPay\CardRegistration();
     $cardRegister->UserId = $user_id;
     $cardRegister->Currency = $currency_code;
     $cardRegister->CardType = $card_type;
     $cardRegister->Tag = $tag;
-    return $mangopay_api->CardRegistrations->Create($cardRegister);
+    return $this->api->CardRegistrations->Create($cardRegister);
   }
 }

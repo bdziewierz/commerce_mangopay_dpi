@@ -14,12 +14,12 @@ use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsRefundsInterf
  * the gateway has. The gateway plugin is free to expose additional methods,
  * which would be defined below.
  */
-interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsAuthorizationsInterface, SupportsRefundsInterface {
+interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsRefundsInterface {
 
   /**
-   * @return mixed
+   * @return \MangoPay\MangoPayApi
    */
-  public function createMangopayApi();
+  public function getApi();
 
   /**
    * @param $mangopay_api
@@ -37,7 +37,7 @@ interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsAuthori
    * @param string $tag
    * @return mixed
    */
-  public function createNaturalUser($mangopay_api, $first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '');
+  public function createNaturalUser($first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '');
 
   /**
    * @param $mangopay_api
@@ -47,7 +47,7 @@ interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsAuthori
    * @param string $tag
    * @return mixed
    */
-  public function createWallet($mangopay_api, $user_id, $currency_code, $description, $tag = '');
+  public function createWallet($user_id, $currency_code, $description, $tag = '');
 
   /**
    * @param $mangopay_api
@@ -57,5 +57,5 @@ interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsAuthori
    * @param string $tag
    * @return mixed
    */
-  public function createCardRegistration($mangopay_api, $user_id, $currency_code, $card_type, $tag = '');
+  public function createCardRegistration($user_id, $currency_code, $card_type, $tag = '');
 }

@@ -125,37 +125,6 @@
   };
 
   /**
-   *
-   * @returns {{cardNumber: *, cardExpirationDate: *, cardCvx: *, cardType: (*|string|string)}}
-   */
-  Drupal.commerceMangopay.getCardInput = function() {
-    return {
-      cardNumber: $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-number"]').val(),
-      cardExpirationDate: $('select[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-expiration-month"]').val()
-      + $('select[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-expiration-year"]').val(),
-      cardCvx: $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-security-code"]').val(),
-      cardType: drupalSettings.commerceMangopay.cardType
-    };
-  };
-
-  /**
-   *
-   * @returns {{firstName: *, lastName: *, addressLine1: *, addressLine2: *, postalCode: *, city: *, country: *, email: string, currencyCode: string}}
-   */
-  Drupal.commerceMangopay.getBillingInformationInput = function() {
-    return {
-      firstName: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-given-name"]').val(),
-      lastName: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-family-name"]').val(),
-      addressLine1: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-address-line1"]').val(),
-      addressLine2: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-address-line2"]').val(),
-      postalCode: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-postal-code"]').val(),
-      city: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-locality').val(),
-      country: $('select[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-country-code"]').val(),
-      email: 'jan@example.com' // TODO: Fetch this
-    };
-  };
-
-  /**
    * Based on https://github.com/braintree/credit-card-type
    *
    * @param cardNumber
@@ -199,6 +168,37 @@
     return exactResults.length ? exactResults[0].type : prefixResults[0].type;
   };
 
+  /**
+   *
+   * @returns {{cardNumber: *, cardExpirationDate: *, cardCvx: *, cardType: (*|string|string)}}
+   */
+  Drupal.commerceMangopay.getCardInput = function() {
+    return {
+      cardNumber: $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-number"]').val(),
+      cardExpirationDate: $('select[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-expiration-month"]').val()
+      + $('select[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-expiration-year"]').val(),
+      cardCvx: $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-security-code"]').val(),
+      cardType: drupalSettings.commerceMangopay.cardType
+    };
+  };
+
+  /**
+   *
+   * @returns {{firstName: *, lastName: *, addressLine1: *, addressLine2: *, postalCode: *, city: *, country: *, email: string, currencyCode: string}}
+   */
+  Drupal.commerceMangopay.getBillingInformationInput = function() {
+    return {
+      firstName: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-given-name"]').val(),
+      lastName: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-family-name"]').val(),
+      addressLine1: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-address-line1"]').val(),
+      addressLine2: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-address-line2"]').val(),
+      postalCode: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-postal-code"]').val(),
+      city: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-locality').val(),
+      country: $('select[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-country-code"]').val(),
+      email: 'jan@example.com' // TODO: Fetch this
+    };
+  };
+
   Drupal.behaviors.commerceMangopay = {
     attach: function (context, settings) {
 
@@ -222,10 +222,10 @@
         }
 
         // First, get user data from MANGOPAY API.
-        var currencyCode = "USD"; // TODO: Fetch it from the cart?
+        var currencyCode = "EUR"; // TODO: Fetch it from the cart?
         $.ajax({
             method: "POST",
-            url: "/commerce-mangopay/get-user/" + drupalSettings.commerceMangopay.paymentGatewayId,
+            url: "/commerce-mangopay/preregister-card/" + drupalSettings.commerceMangopay.paymentGatewayId,
             data: {
               card_type: drupalSettings.commerceMangopay.cardType,
               currency_code: currencyCode,
@@ -239,50 +239,47 @@
               country: billingInformationInput.country
             }
           })
-          .done(function(getUserResponse) {
+          .done(function(preregisterResponse) {
             // Secondly, initialize card registration object with get-user provided data
             mangoPay.cardRegistration.init({
-              cardRegistrationURL : getUserResponse.cardRegistrationURL,
-              preregistrationData : getUserResponse.preregistrationData,
-              accessKey : getUserResponse.accessKey,
-              Id : getUserResponse.cardRegistrationId
+              cardRegistrationURL : preregisterResponse.cardRegistrationURL,
+              preregistrationData : preregisterResponse.preregistrationData,
+              accessKey : preregisterResponse.accessKey,
+              Id : preregisterResponse.cardRegistrationId
             });
 
+            // Register card with MANGOPAY
             mangoPay.cardRegistration.registerCard(cardInput,
-              function(registerCardResponse) {
+              function(registerResponse) {
+
+                // According to MANGOPAY docs, we have to update card register here:
+                // https://docs.mangopay.com/endpoints/v2.01/cards#e178_create-a-card-registration
+                // But, it appears javascript MANGOPAY toolkit does it automatically for us. NICE!
+
                 // Save relevant data in the hidden fields on the form and pass the form over to Drupal for processing.
-                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-card-type"]')
-                  .val(cardType);
+                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-card-type"]').val(cardType);
                 // WARNING: We can transfer and store ONLY last 4 digits of the card in Drupal.
                 // Full card information is passed over to MANGOPAY.
-                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-card-alias"]')
-                  .val(cardInput.cardNumber.substr(cardInput.cardNumber.length - 4));
-                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-card-id"]')
-                  .val(registerCardResponse.CardId);
-                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-user-id"]')
-                  .val(getUserResponse.userId);
-                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-wallet-id"]')
-                  .val(getUserResponse.walletId);
+                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-card-alias"]').val(cardInput.cardNumber.substr(cardInput.cardNumber.length - 4));
+                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-card-id"]').val(registerResponse.CardId);
+                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-user-id"]').val(preregisterResponse.userId);
+                $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-wallet-id"]').val(preregisterResponse.walletId);
 
                 // Submit the whole and pass on control to actual Commerce checkout routines.
                 submitButton.parents('form').first().submit();
               },
               function(errorResponse){
-                // TODO: Handle error
-                console.log(errorResponse)
+                // TODO: Handle error - https://docs.mangopay.com/guide/errors
+                console.log(errorResponse);
+                submitButton.removeAttr("disabled");
               }
             );
           })
           .fail(function() {
-            // TODO: Handle error
-            console.log("Error")
-          })
-          .always(function() {
+            // TODO: Handle error - https://docs.mangopay.com/guide/errors
+            console.log("Error");
             submitButton.removeAttr("disabled");
           });
-
-        // Initialize with card register data prepared on the server
-
 
         event.preventDefault();
       });

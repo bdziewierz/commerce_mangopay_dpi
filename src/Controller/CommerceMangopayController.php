@@ -41,18 +41,20 @@ class CommerceMangopayController implements ContainerInjectionInterface {
   }
 
   /**
-   * Callback method which creates MANGOPAY user
-   * before registering his credit card.
+   * Callback method which pre registeres user's card
+   * and creates user - wallet combo if it doesn't exist.
    *
-   * @throws \Drupal\commerce\Response\NeedsRedirectException
+   * @param $payment_gateway_id
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
    */
-  public function getUser($payment_gateway_id, Request $request) {
+  public function preRegisterCard($payment_gateway_id, Request $request) {
     // TODO: Add some kind of security so that this endpoint is not be called willy-nilly
 
     /** @var \Drupal\commerce_payment\Entity\PaymentGatewayInterface $payment */
     $payment_gateway = \Drupal::entityTypeManager()->getStorage('commerce_payment_gateway')->load($payment_gateway_id);
     if (empty($payment_gateway)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse(NULL, 404);
     }
 
     // Capture user details passed in the request
@@ -101,31 +103,59 @@ class CommerceMangopayController implements ContainerInjectionInterface {
     // TODO: Check if user exists in MANGOPAY
     // TODO: if not, create it
     // TODO: if yes, retrieve it
+    // TODO: Handle errors - https://docs.mangopay.com/guide/errors
 
     /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\OnsiteInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $payment_gateway->getPlugin();
 
-    // Create instance of MangoPayApi SDK
-    $mangopay_api = $payment_gateway_plugin->createMangopayApi();
-
     // Create user for payment
-    $user = $payment_gateway_plugin->createNaturalUser($mangopay_api, $first_name, $last_name, strtotime('1980-08-25'), $email, $country, $address_line1, $address_line2, $city, $postal_code, '', '', 'buyer');
+    /// TODO: Fix hardcoded date of birth, please
+    $user = $payment_gateway_plugin->createNaturalUser($first_name, $last_name, strtotime('1980-08-25'), $email, $country, $address_line1, $address_line2, $city, $postal_code, '', '', 'buyer');
 
     // Create Wallet for the user
-    $wallet = $payment_gateway_plugin->createWallet($mangopay_api, $user->Id, $currency_code, "Buyer wallet", "buyer wallet");
+    $wallet = $payment_gateway_plugin->createWallet($user->Id, $currency_code, "Buyer wallet", "buyer wallet");
 
     // Initiate card registration
-    $cardRegister = $payment_gateway_plugin->createCardRegistration($mangopay_api, $user->Id, $currency_code, $card_type, "buyer card");
+    $card_register = $payment_gateway_plugin->createCardRegistration($user->Id, $currency_code, $card_type, "buyer card");
 
     // Send response to the browser
     return new JsonResponse([
         'userId' => $user->Id,
         'walletId' => $wallet->Id,
-        'cardRegistrationURL' => $cardRegister->CardRegistrationURL,
-        'preregistrationData' => $cardRegister->PreregistrationData,
-        'cardRegistrationId' => $cardRegister->Id,
-        'cardType' => $cardRegister->CardType,
-        'accessKey' => $cardRegister->AccessKey
+        'cardRegistrationURL' => $card_register->CardRegistrationURL,
+        'preregistrationData' => $card_register->PreregistrationData,
+        'cardRegistrationId' => $card_register->Id,
+        'cardType' => $card_register->CardType,
+        'accessKey' => $card_register->AccessKey
       ]);
+  }
+
+  /**
+   * Callback method for secure mode (3DS) results.
+   *
+   * @param $payment_gateway_id
+   * @param \Symfony\Component\HttpFoundation\Request $request
+   * @return \Symfony\Component\HttpFoundation\JsonResponse
+   */
+  public function secureModeCallback($payment_gateway_id, Request $request) {
+    // TODO: Add some kind of security so that this endpoint is not be called willy-nilly
+
+    /** @var \Drupal\commerce_payment\Entity\PaymentGatewayInterface $payment */
+    $payment_gateway = \Drupal::entityTypeManager()->getStorage('commerce_payment_gateway')->load($payment_gateway_id);
+    if (empty($payment_gateway)) {
+      return new JsonResponse(NULL, 404);
+    }
+
+    // Capture user details passed in the request
+    $currency_code = $request->get('currency_code');
+    if (empty($currency_code)) {
+      return new JsonResponse(NULL, 400);
+    }
+
+    /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\OnsiteInterface $payment_gateway_plugin */
+    $payment_gateway_plugin = $payment_gateway->getPlugin();
+
+    // Send response to the browser
+    return new JsonResponse([]);
   }
 }

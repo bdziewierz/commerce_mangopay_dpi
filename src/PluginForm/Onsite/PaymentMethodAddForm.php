@@ -131,9 +131,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#required' => FALSE,
       '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
     ];
-
-    // The following 5 fields are populated by JavaScript after interacting with MANGOPAY
-    // card registration (tokenization) interface.
+    
     $form['payment_details']['card_type'] = [
       '#type' => 'hidden'
     ];
@@ -186,7 +184,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
     /** @var \Drupal\commerce_payment\Entity\PaymentMethodInterface $payment_method */
     $payment_method = $this->entity;
 
-    // Validate we've got everything passed from the
+    // TODO: Validate we've got everything we need passed from add method
   }
 
   /**
