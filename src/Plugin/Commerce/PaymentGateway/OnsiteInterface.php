@@ -7,7 +7,7 @@ use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsAuthorization
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsRefundsInterface;
 
 /**
- * Provides the interface for the example_onsite payment gateway.
+ * Provides the interface for the commerce_mangopay payment gateway.
  *
  * The OnsitePaymentGatewayInterface is the base interface which all on-site
  * gateways implement. The other interfaces signal which additional capabilities

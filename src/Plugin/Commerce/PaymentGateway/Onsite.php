@@ -185,9 +185,7 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    */
   public function createPaymentMethod(PaymentMethodInterface $payment_method, array $payment_details) {
     $required_keys = [
-      // The expected keys are payment gateway specific and usually match
-      // the PaymentMethodAddForm form elements. They are expected to be valid.
-      'type', 'number', 'expiration',
+      'card_type', 'card_alias', 'card_id', 'user_id', 'wallet_id', 'expiration'
     ];
     foreach ($required_keys as $required_key) {
       if (empty($payment_details[$required_key])) {
@@ -195,30 +193,26 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
       }
     }
 
-    // If the remote API needs a remote customer to be created.
+    // We use Mangopay's User Id and Wallet Id combination as Remote Customer Id
+    $remote_user_wallet = $payment_details['card_id'] . ':' . $payment_details['wallet_id'];
     $owner = $payment_method->getOwner();
     if ($owner && $owner->isAuthenticated()) {
-      $customer_id = $this->getRemoteCustomerId($owner);
-      // If $customer_id is empty, create the customer remotely and then do
-      // $this->setRemoteCustomerId($owner, $customer_id);
-      // $owner->save();
+      $current_remote_user_wallet = $this->getRemoteCustomerId($owner);
+      if (empty($current_remote_user_wallet) || $current_remote_user_wallet != $remote_user_wallet) {
+        $this->setRemoteCustomerId($owner, $remote_user_wallet);
+        $owner->save();
+      }
     }
 
-    // Perform the create request here, throw an exception if it fails.
-    // See \Drupal\commerce_payment\Exception for the available exceptions.
-    // You might need to do different API requests based on whether the
-    // payment method is reusable: $payment_method->isReusable().
-    // Non-reusable payment methods usually have an expiration timestamp.
-    $payment_method->card_type = $payment_details['type'];
-    // Only the last 4 numbers are safe to store.
-    $payment_method->card_number = substr($payment_details['number'], -4);
+    // Set card type, alias and remote ID..
+    $payment_method->card_type = $payment_details['card_type'];
+    $payment_method->card_number = $payment_details['card_alias'];
     $payment_method->card_exp_month = $payment_details['expiration']['month'];
     $payment_method->card_exp_year = $payment_details['expiration']['year'];
     $expires = CreditCard::calculateExpirationTimestamp($payment_details['expiration']['month'], $payment_details['expiration']['year']);
     // The remote ID returned by the request.
-    $remote_id = '789';
-
-    $payment_method->setRemoteId($remote_id);
+    
+    $payment_method->setRemoteId($payment_details['card_id']);
     $payment_method->setExpiresTime($expires);
     $payment_method->save();
   }

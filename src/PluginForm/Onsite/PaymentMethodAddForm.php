@@ -95,11 +95,10 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#required' => FALSE,
       '#maxlength' => 19,
       '#size' => 20,
-      '#commerce_mangopay_data' => TRUE
+      '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
     ];
     $form['payment_details']['expiration'] = [
       '#type' => 'container',
-      '#commerce_mangopay_data' => TRUE,
       '#attributes' => [
         'class' => ['credit-card-form__expiration'],
       ],
@@ -109,8 +108,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#title' => t('Month'),
       '#options' => $months,
       '#default_value' => date('m'),
-      '#required' => FALSE,
-      '#commerce_mangopay_data' => TRUE
+      '#required' => TRUE
     ];
     $form['payment_details']['expiration']['divider'] = [
       '#type' => 'item',
@@ -122,30 +120,37 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#title' => t('Year'),
       '#options' => $years,
       '#default_value' => $current_year,
-      '#required' => FALSE,
-      '#commerce_mangopay_data' => TRUE
+      '#required' => TRUE
     ];
     $form['payment_details']['security_code'] = [
       '#type' => 'textfield',
       '#title' => t('CVV'),
       '#attributes' => ['autocomplete' => 'off'],
-      '#required' => FALSE,
       '#maxlength' => 4,
       '#size' => 4,
-      '#commerce_mangopay_data' => TRUE
+      '#required' => FALSE,
+      '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
     ];
 
-    // The following 3 fields are populated by JavaScript after interacting with MANGOPAY
+    // The following 5 fields are populated by JavaScript after interacting with MANGOPAY
     // card registration (tokenization) interface.
-    $form['card_id'] = [
+    $form['payment_details']['card_type'] = [
       '#type' => 'hidden'
     ];
 
-    $form['user_id'] = [
+    $form['payment_details']['card_alias'] = [
       '#type' => 'hidden'
     ];
 
-    $form['wallet_id'] = [
+    $form['payment_details']['card_id'] = [
+      '#type' => 'hidden'
+    ];
+
+    $form['payment_details']['user_id'] = [
+      '#type' => 'hidden'
+    ];
+
+    $form['payment_details']['wallet_id'] = [
       '#type' => 'hidden'
     ];
 
@@ -192,16 +197,13 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
     $payment_method = $this->entity;
     $payment_method->setBillingProfile($form['billing_information']['#profile']);
 
-    $values = $form_state->getValue($form['#parents']);
-
-    ksm($values);
-
     /** @var \Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsStoredPaymentMethodsInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $this->plugin;
-    // The payment method form is customer facing. For security reasons
-    // the returned errors need to be more generic.
+
+    $values = $form_state->getValue($form['#parents']);
+
     try {
-      //$payment_gateway_plugin->createPaymentMethod($payment_method, $values['payment_details']);
+      $payment_gateway_plugin->createPaymentMethod($payment_method, $values['payment_details']);
     }
     catch (DeclineException $e) {
       \Drupal::logger('commerce_payment')->warning($e->getMessage());
