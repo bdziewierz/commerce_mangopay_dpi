@@ -2,29 +2,30 @@
 
 namespace Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway;
 
+use Drupal\commerce_order\Entity\OrderInterface;
 use Drupal\commerce_payment\CreditCard;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Entity\PaymentMethodInterface;
-use Drupal\commerce_payment\Exception\DeclineException;
-use Drupal\commerce_payment\Exception\HardDeclineException;
-use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager;
 use Drupal\commerce_payment\PaymentTypeManager;
-use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OnsitePaymentGatewayBase;
+use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OffsitePaymentGatewayBase;
 use Drupal\commerce_price\Price;
 use Drupal\Component\Datetime\TimeInterface;
 use Drupal\Core\Entity\EntityTypeManagerInterface;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Url;
+use Symfony\Component\HttpFoundation\Request;
 
 /**
- * Provides the On-site payment gateway.
+ * Provides the Off-site Secure Mode (3DS) redirect
  *
  * @CommercePaymentGateway(
- *   id = "commerce_mangopay_onsite",
- *   label = "MANGOPAY (On-site)",
+ *   id = "commerce_mangopay",
+ *   label = "MANGOPAY",
  *   display_label = "MANGOPAY",
  *   forms = {
  *     "add-payment-method" = "Drupal\commerce_mangopay\PluginForm\Onsite\PaymentMethodAddForm",
+ *     "offsite-payment" = "Drupal\commerce_mangopay\PluginForm\OffsiteRedirect\PaymentOffsiteForm",
  *   },
  *   modes = {"sandbox" = "Sandbox", "production" = "Production"},
  *   payment_method_types = {"commerce_mangopay_credit_card"},
@@ -33,13 +34,21 @@ use Drupal\Core\Form\FormStateInterface;
  *   },
  * )
  */
-class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
+class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
 
   /**
    * @var \MangoPay\MangoPayApi
    */
   protected $api;
-
+  
+  /**
+   *
+   * @return \MangoPay\MangoPayApi
+   */
+  public function getApi() {
+    return $this->api;
+  }
+  
   /**
    * {@inheritdoc}
    */
@@ -82,6 +91,9 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
    */
   public function buildConfigurationForm(array $form, FormStateInterface $form_state) {
     $form = parent::buildConfigurationForm($form, $form_state);
+    // The PaymentInformation pane uses payment method labels
+    // for on-site gateways, the display label is unused.
+    $form['display_label']['#access'] = FALSE;
 
     $form['client_id'] = [
       '#type' => 'textfield',
@@ -113,113 +125,6 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
       $this->configuration['client_id'] = $values['client_id'];
       $this->configuration['client_pass'] = $values['client_pass'];
     }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function createPayment(PaymentInterface $payment, $capture = TRUE) {
-    $this->assertPaymentState($payment, ['new']);
-
-    $payment_method = $payment->getPaymentMethod();
-    $this->assertPaymentMethod($payment_method);
-
-    $amount = doubleval($payment->getAmount()->getNumber()) * 100;
-    $currency_code = $payment->getAmount()->getCurrencyCode();
-    $card_id = $payment_method->getRemoteId();
-    $user_id = $payment_method->user_id->value;
-    $wallet_id = $payment_method->wallet_id->value;
-
-    // TODO: Do we have to make a call here? Why not storing this?
-    $card = $this->api->Cards->Get($card_id);
-
-    // Create pay-in CARD DIRECT
-    $pay_in = new \MangoPay\PayIn();
-    $pay_in->CreditedWalletId = $wallet_id;
-    $pay_in->AuthorId = $user_id;
-    $pay_in->DebitedFunds = new \MangoPay\Money();
-    $pay_in->DebitedFunds->Amount = $amount;
-    $pay_in->DebitedFunds->Currency = $currency_code;
-    $pay_in->Fees = new \MangoPay\Money();
-    $pay_in->Fees->Amount = 0;
-    $pay_in->Fees->Currency = $currency_code;
-
-    // Payment type as CARD
-    $pay_in->PaymentDetails = new \MangoPay\PayInPaymentDetailsCard();
-    $pay_in->PaymentDetails->CardType = $card->CardType;
-    $pay_in->PaymentDetails->CardId = $card->Id;
-
-    // Execution type as DIRECT
-    $pay_in->ExecutionDetails = new \MangoPay\PayInExecutionDetailsDirect();
-    $pay_in->ExecutionDetails->SecureModeReturnURL = 'http://test.com';
-
-    try {
-      $result = $this->api->PayIns->Create($pay_in);
-    } catch(\Exception $e) {
-      ksm($e);
-      throw new PaymentGatewayException('Unexpected error processing payment method');
-    }
-
-    switch($result->Status) {
-      case \MangoPay\PayInStatus::Failed:
-        ksm($result);
-
-        // TODO: Handle various responses - https://docs.mangopay.com/guide/errors
-        // 3DS
-        // Soft decline
-        // Hard decline
-        // Etc.
-        switch($result->ResultCode) {
-          default:
-            throw new DeclineException('Please try a different payment method');
-        }
-      break;
-
-      // 3DS / Secure Mode, needs further processing
-      case \MangoPay\PayInStatus::Created:
-        ksm($result);
-        
-        
-        throw new PaymentGatewayException('Secure mode not supported yet');
-        break;
-
-      // Success, mark payment as completed and continue
-      case \MangoPay\PayInStatus::Succeeded:
-        $payment->setState('completed');
-        $payment->setRemoteId($result->Id);
-        $payment->save();
-        break;
-
-      default:
-        throw new PaymentGatewayException('Unexpected error processing payment method');
-    }
-  }
-
-  /**
-   * {@inheritdoc}
-   */
-  public function refundPayment(PaymentInterface $payment, Price $amount = NULL) {
-    $this->assertPaymentState($payment, ['completed', 'partially_refunded']);
-    // If not specified, refund the entire amount.
-    $amount = $amount ?: $payment->getAmount();
-    $this->assertRefundAmount($payment, $amount);
-
-    // Perform the refund request here, throw an exception if it fails.
-    // See \Drupal\commerce_payment\Exception for the available exceptions.
-    $remote_id = $payment->getRemoteId();
-    $number = $amount->getNumber();
-
-    $old_refunded_amount = $payment->getRefundedAmount();
-    $new_refunded_amount = $old_refunded_amount->add($amount);
-    if ($new_refunded_amount->lessThan($payment->getAmount())) {
-      $payment->setState('partially_refunded');
-    }
-    else {
-      $payment->setState('refunded');
-    }
-
-    $payment->setRefundedAmount($new_refunded_amount);
-    $payment->save();
   }
 
   /**
@@ -271,11 +176,49 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
   }
 
   /**
-   * 
-   * @return \MangoPay\MangoPayApi
+   * {@inheritdoc}
    */
-  public function getApi() {
-    return $this->api;
+  public function onReturn(OrderInterface $order, Request $request) {
+    // TODO: Check if we have a correct payment made.
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function onCancel(OrderInterface $order, Request $request) {
+    drupal_set_message($this->t('You have canceled checkout but may resume the checkout process here when you are ready.'));
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function onNotify(Request $request) {}
+
+  /**
+   * {@inheritdoc}
+   */
+  public function refundPayment(PaymentInterface $payment, Price $amount = NULL) {
+    $this->assertPaymentState($payment, ['completed', 'partially_refunded']);
+    // If not specified, refund the entire amount.
+    $amount = $amount ?: $payment->getAmount();
+    $this->assertRefundAmount($payment, $amount);
+
+    // Perform the refund request here, throw an exception if it fails.
+    // See \Drupal\commerce_payment\Exception for the available exceptions.
+    $remote_id = $payment->getRemoteId();
+    $number = $amount->getNumber();
+
+    $old_refunded_amount = $payment->getRefundedAmount();
+    $new_refunded_amount = $old_refunded_amount->add($amount);
+    if ($new_refunded_amount->lessThan($payment->getAmount())) {
+      $payment->setState('partially_refunded');
+    }
+    else {
+      $payment->setState('refunded');
+    }
+
+    $payment->setRefundedAmount($new_refunded_amount);
+    $payment->save();
   }
 
   /**
@@ -346,5 +289,48 @@ class Onsite extends OnsitePaymentGatewayBase implements OnsiteInterface {
     $cardRegister->CardType = $card_type;
     $cardRegister->Tag = $tag;
     return $this->api->CardRegistrations->Create($cardRegister);
+  }
+
+  /**
+   * @param $user_id
+   * @param $wallet_id
+   * @param $card_id
+   * @param $amount
+   * @param $currency_code
+   * @param $secure_mode_return_url
+   * @return \MangoPay\PayIn
+   */
+  public function createDirectPayIn($user_id, $wallet_id, $card_id, $amount, $currency_code, $secure_mode_return_url) {
+
+    // Create pay-in CARD DIRECT
+    $pay_in = new \MangoPay\PayIn();
+    $pay_in->CreditedWalletId = $wallet_id;
+    $pay_in->AuthorId = $user_id;
+    $pay_in->DebitedFunds = new \MangoPay\Money();
+    $pay_in->DebitedFunds->Amount = $amount;
+    $pay_in->DebitedFunds->Currency = $currency_code;
+    $pay_in->Fees = new \MangoPay\Money();
+    $pay_in->Fees->Amount = 0;
+    $pay_in->Fees->Currency = $currency_code;
+
+    // Payment type as CARD
+    // TODO: Do we have to make a call here? Why not storing this?
+    $card = $this->api->Cards->Get($card_id);
+    $pay_in->PaymentDetails = new \MangoPay\PayInPaymentDetailsCard();
+    $pay_in->PaymentDetails->CardType = $card->CardType;
+    $pay_in->PaymentDetails->CardId = $card->Id;
+
+    // Execution type as DIRECT
+    $pay_in->ExecutionDetails = new \MangoPay\PayInExecutionDetailsDirect();
+    $pay_in->ExecutionDetails->SecureModeReturnURL = $secure_mode_return_url;
+
+    return $this->api->PayIns->Create($pay_in);
+  }
+
+  /**
+   * @param $payin_id
+   */
+  public function getPayIn($payin_id) {
+    return $this->api->PayIns->Get($payin_id);
   }
 }

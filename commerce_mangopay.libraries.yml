@@ -1,10 +1,16 @@
-mangopay.cardregistration-js-kit:
+mangopay.cardregistration_js_kit:
   js:
     /libraries/cardregistration-js-kit/kit/mangopay-kit.min.js: {}
 
-commerce-mangopay:
+register_card:
   js:
-    js/commerce-mangopay.js: {}
+    js/register-card.js: {}
   dependencies:
     - core/jquery
-    - commerce_mangopay/mangopay.cardregistration-js-kit
+    - commerce_mangopay/mangopay.cardregistration_js_kit
+
+pay_in:
+  js:
+    js/pay-in.js: {}
+  dependencies:
+    - core/jquery

@@ -199,7 +199,7 @@
     };
   };
 
-  Drupal.behaviors.commerceMangopay = {
+  Drupal.behaviors.commerceMangopayRegisterCard = {
     attach: function (context, settings) {
 
       // Register baseURL and client ID with MANGOPAY object.

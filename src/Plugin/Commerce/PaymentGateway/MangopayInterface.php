@@ -2,19 +2,14 @@
 
 namespace Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway;
 
-use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OnsitePaymentGatewayInterface;
-use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsAuthorizationsInterface;
+use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OffsitePaymentGatewayInterface;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsRefundsInterface;
+use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsStoredPaymentMethodsInterface;
 
 /**
  * Provides the interface for the commerce_mangopay payment gateway.
- *
- * The OnsitePaymentGatewayInterface is the base interface which all on-site
- * gateways implement. The other interfaces signal which additional capabilities
- * the gateway has. The gateway plugin is free to expose additional methods,
- * which would be defined below.
  */
-interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsRefundsInterface {
+interface MangopayInterface extends OffsitePaymentGatewayInterface, SupportsRefundsInterface, SupportsStoredPaymentMethodsInterface {
 
   /**
    * @return \MangoPay\MangoPayApi
@@ -58,4 +53,20 @@ interface OnsiteInterface extends OnsitePaymentGatewayInterface, SupportsRefunds
    * @return mixed
    */
   public function createCardRegistration($user_id, $currency_code, $card_type, $tag = '');
+
+  /**
+   * @param $user_id
+   * @param $wallet_id
+   * @param $card_id
+   * @param $amount
+   * @param $currency_code
+   * @param $secure_mode_return_url
+   * @return \MangoPay\PayIn
+   */
+  public function createDirectPayIn($user_id, $wallet_id, $card_id, $amount, $currency_code, $secure_mode_return_url);
+
+  /**
+   * @param $payin_id
+   */
+  public function getPayIn($payin_id);
 }

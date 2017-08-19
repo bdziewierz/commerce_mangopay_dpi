@@ -53,7 +53,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
 
     // Attach JS script and related settings.
     $form['#attached']['library'][] = 'commerce_payment/payment_method_form';
-    $form['#attached']['library'][] = 'commerce_mangopay/commerce-mangopay';
+    $form['#attached']['library'][] = 'commerce_mangopay/register_card';
     $form['#attached']['drupalSettings']['commerceMangopay'] = [
       'mode' => $mode,
       'baseUrl' => $base_url,
@@ -131,7 +131,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#required' => FALSE,
       '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
     ];
-    
+
     $form['payment_details']['card_type'] = [
       '#type' => 'hidden'
     ];

@@ -1,16 +1,25 @@
 commerce_mangopay.preregister_card:
-  path: 'commerce-mangopay/preregister-card/{payment_gateway_id}'
+  path: 'commerce-mangopay/preregister-card/{commerce_payment_gateway}'
   defaults:
-    _controller: '\Drupal\commerce_mangopay\Controller\CommerceMangopayController::preRegisterCard'
+    _controller: '\Drupal\commerce_mangopay\Controller\MangopayController::preRegisterCard'
   options:
     no_cache: TRUE
   requirements:
     _access: 'TRUE'
 
-commerce_mangopay.complete_card_registration:
-  path: 'commerce-mangopay/secure-mode-callback/{payment_gateway_id}'
+commerce_mangopay.pay_in:
+  path: 'commerce-mangopay/pay-in/{commerce_payment}'
   defaults:
-    _controller: '\Drupal\commerce_mangopay\Controller\CommerceMangopayController::secureModeCallback'
+    _controller: '\Drupal\commerce_mangopay\Controller\MangopayController::payIn'
+  options:
+    no_cache: TRUE
+  requirements:
+    _access: 'TRUE'
+
+commerce_mangopay.process_secure_mode:
+  path: 'commerce-mangopay/process-secure-mode/{commerce_payment}'
+  defaults:
+    _controller: '\Drupal\commerce_mangopay\Controller\MangopayController::processSecureMode'
   options:
     no_cache: TRUE
   requirements:
