@@ -1,26 +1,51 @@
 <?php
 
 /**
- * @param $vars
+ * Implements hook_preprocess_form_element();
+ *
+ * @param $variables
  */
-function commerce_mangopay_preprocess_input(&$variables) {
+function commerce_mangopay_preprocess_form_element(&$variables) {
   if (!empty($variables['element']['#commerce_mangopay_sensitive'])) {
-    _commerce_mangopay_clear_identification($variables);
+    // Fool the theme that sensitive fields are required.
+    // In reality we never allow values from sensitive fields to reach Drupal
+    $variables['required'] = TRUE;
+    $variables['element']['#required'] = TRUE;
+    $variables['label']['#required'] = TRUE;
   }
 }
 
 /**
- * Remove name attribute from the PCI sensitive form elements.
- * submit those offsite to MANGOPAY, they should never reach Drupal server
- * directly.
+ * Implements hook_preprocess_input();
  *
  * @param $variables
  */
-function _commerce_mangopay_clear_identification(&$variables) {
-  unset($variables['element']['#name']);
-  unset($variables['element']['#attributes']['name']);
-  unset($variables['attributes']['name']);
-  unset($variables['element']['#id']);
-  unset($variables['element']['#attributes']['id']);
-  unset($variables['attributes']['id']);
+function commerce_mangopay_preprocess_input(&$variables) {
+  if (!empty($variables['element']['#commerce_mangopay_sensitive'])) {
+
+    // Clear any form of identification from sensitive fields,
+    // so that they are never submitted to Drupal.
+    unset($variables['element']['#name']);
+    unset($variables['element']['#attributes']['name']);
+    unset($variables['attributes']['name']);
+    unset($variables['element']['#id']);
+    unset($variables['element']['#attributes']['id']);
+    unset($variables['attributes']['id']);
+
+    // Fool the theme that sensitive fields are required.
+    // In reality we never allow values from sensitive fields to reach Drupal
+    $variables['attributes']['class'][] = 'required';
+    $variables['attributes']['required'] = 'required';
+    $variables['attributes']['aria-required'] = 'true';
+  }
+}
+
+/**
+ * Implements hook_preprocess_status_messages();
+ *
+ * @param $variables
+ */
+function commerce_mangopay_preprocess_status_messages(&$variables) {
+  // Specifically add js-messages class so that the box can be picked up with javascript.
+  $variables['attributes']['class'][] = 'js-messages';
 }

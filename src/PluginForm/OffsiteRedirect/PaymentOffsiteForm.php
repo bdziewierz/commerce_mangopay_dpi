@@ -27,9 +27,16 @@ class PaymentOffsiteForm extends PaymentGatewayFormBase {
     // Pay in callback is responsible of clearing it in case if something goes wrong.
     $payment->save();
 
-    $form['anchor'] = [
+    // Check if user has java script enabled.
+
+    $form['payin'] = [
       '#type' => 'container',
       '#tag' => 'div'
+    ];
+
+    $form['payin']['message'] = [
+      '#type' => 'markup',
+      '#markup' => t('Please wait while your payment is processed. Please do not close the browser window nor navigate to other pages.'),
     ];
 
     $form['#attached']['library'][] = 'commerce_mangopay/pay_in';

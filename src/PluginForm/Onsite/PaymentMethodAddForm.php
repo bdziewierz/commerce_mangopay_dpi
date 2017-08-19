@@ -42,6 +42,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
     $payment_gateway_plugin = $payment_method->getPaymentGateway()->getPlugin();
     $mode = $payment_gateway_plugin->getConfiguration()['mode'];
     $client_id = $payment_gateway_plugin->getConfiguration()['client_id'];
+    $card_type = 'CB_VISA_MASTERCARD'; // TODO: Are those types only ones supported at the moment?
     switch($mode) {
       case 'production':
         $base_url = 'https://api.mangopay.com';
@@ -58,9 +59,26 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       'mode' => $mode,
       'baseUrl' => $base_url,
       'clientId' => $client_id,
-      'cardType' => 'CB_VISA_MASTERCARD', // TODO: Get from config?!
+      'cardType' => $card_type,
+      'currencyCode' => 'EUR', // TODO: Get from order?
       'paymentGatewayId' => $payment_gateway_id,
     ];
+
+    // Attach container for displaying status and error messages via java script
+    // Waiting patiently for: https://www.drupal.org/node/77245 but in the meantime...
+    $form['status'] = [
+      '#theme' => 'status_messages',
+      '#display' => 'error',
+
+      // We take an opportunity here to warn the user that this form requires
+      // the JavaScript to be enabled (sorry, no progressive enhancement at the mo).
+      // If a user has JS enabled, this message will disappear.
+      // Doing this also renders a full messages block with actual list items
+      // usable from JS level to display errors.
+      '#message_list' => ['error' => [
+        t('This form requires JavaScript.'),
+        t('Please make sure your browser is up to date and JavaScript is not disabled.')]],
+      '#status_headings' => ['error' => t('Error message')]];
 
     $form['#tree'] = TRUE;
     $form['payment_details'] = [
@@ -92,9 +110,9 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#type' => 'textfield',
       '#title' => t('Card number'),
       '#attributes' => ['autocomplete' => 'off'],
-      '#required' => FALSE,
       '#maxlength' => 19,
       '#size' => 20,
+      '#required' => FALSE, // From the perspective of FAPI this field is not required.
       '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
     ];
     $form['payment_details']['expiration'] = [
@@ -128,7 +146,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#attributes' => ['autocomplete' => 'off'],
       '#maxlength' => 4,
       '#size' => 4,
-      '#required' => FALSE,
+      '#required' => FALSE, // From the perspective of FAPI this field is not required.
       '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
     ];
 
@@ -181,10 +199,15 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
    * {@inheritdoc}
    */
   public function validateConfigurationForm(array &$form, FormStateInterface $form_state) {
-    /** @var \Drupal\commerce_payment\Entity\PaymentMethodInterface $payment_method */
-    $payment_method = $this->entity;
+    $values = $form_state->getValue($form['#parents']);
+    $payment_details = $values['payment_details'];
 
-    // TODO: Validate we've got everything we need passed from add method
+    // Validate if we have required data to correctly register the card.
+    if (empty($payment_details['card_type']) || empty($payment_details['card_alias'])
+      || empty($payment_details['card_id']) || empty($payment_details['user_id'])
+      || empty($payment_details['wallet_id'])) {
+      $form_state->setError($form,  t('The credit card form has not been processed correctly. Please make sure your browser is up to date and supports JavaScript.'));
+    }
   }
 
   /**

@@ -172,7 +172,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     // Delete the local entity.
     $payment_method->delete();
 
-    // TODO: Instruct MANGOPAY API to remove credit card.
+    // TODO: Instruct MANGOPAY API to remove credit card? Is this possible?
   }
 
   /**
@@ -328,7 +328,9 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   }
 
   /**
+   *
    * @param $payin_id
+   * @return \MangoPay\PayIn
    */
   public function getPayIn($payin_id) {
     return $this->api->PayIns->Get($payin_id);

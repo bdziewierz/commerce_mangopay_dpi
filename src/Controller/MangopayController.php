@@ -2,7 +2,6 @@
 
 namespace Drupal\commerce_mangopay\Controller;
 
-use Drupal\commerce_order\Entity\OrderInterface;
 use Drupal\commerce_payment\Entity\PaymentGatewayInterface;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
@@ -12,7 +11,6 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
 use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Request;
-use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
  * This is a dummy controller for mocking an off-site gateway.
@@ -54,8 +52,6 @@ class MangopayController implements ContainerInjectionInterface {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    */
   public function preRegisterCard(PaymentGatewayInterface $commerce_payment_gateway, Request $request) {
-    // TODO: Add some kind of security so that this endpoint is not be called willy-nilly
-
     // Capture user details passed in the request
     $currency_code = $request->get('currency_code');
     if (empty($currency_code)) {
@@ -104,7 +100,7 @@ class MangopayController implements ContainerInjectionInterface {
     // TODO: if yes, retrieve it
     // TODO: Handle errors - https://docs.mangopay.com/guide/errors
 
-    /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\OnsiteInterface $payment_gateway_plugin */
+    /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $commerce_payment_gateway->getPlugin();
 
     // Create user for payment
