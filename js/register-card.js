@@ -407,9 +407,8 @@
    * https://docs.mangopay.com/endpoints/v2.01/cards#e178_create-a-card-registration
    *
    * @param form
-   * @returns {boolean}
    */
-  Drupal.commerceMangopay.registerCard = function(form) {
+  Drupal.commerceMangopay.registerCard = function(form,completed) {
     var hasErrors = false;
 
     // Validate the form and inputs
@@ -430,7 +429,8 @@
     // If there are any validation errors, scroll to the top and do not continue.
     if (hasErrors) {
       $('html, body').animate({scrollTop: 0}, 200);
-      return false;
+      completed(false);
+      return;
     }
 
     // Get user, wallet and card preregistration data.
@@ -482,19 +482,21 @@
             $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-user-id"]', form).val(preregisterResponse.userId);
             $('input[data-drupal-selector="edit-payment-information-add-payment-method-payment-details-wallet-id"]', form).val(preregisterResponse.walletId);
 
+            completed(true);
+
             // Submit the whole and pass on control to actual Commerce checkout routines.
             form.submit();
           },
           function(errorResponse){
             // TODO: Introduce more descriptive user messages for some more common errors: https://docs.mangopay.com/guide/errors
             Drupal.commerceMangopay.setError(form, null, Drupal.t('We have encountered problems while processing your card. Please confirm the details you entered are correct or try a different card.'));
-            return false;
+            completed(false);
           }
         );
       })
       .fail(function() {
         Drupal.commerceMangopay.setError(form, null, Drupal.t('Unexpected error occurred while processing your card. Please confirm the details you entered are correct or try a different card. If the problem persists, please contact us.'));
-        return false;
+        completed(false);
       });
   };
 
@@ -535,9 +537,9 @@
           submitButton.attr("disabled", true);
 
           // Call register card
-          if (!Drupal.commerceMangopay.registerCard(form)) {
-            submitButton.removeAttr("disabled");
-          }
+          Drupal.commerceMangopay.registerCard(form, function(success) {
+            if (!success) { submitButton.removeAttr("disabled"); }
+          });
         });
       }
 

@@ -54,6 +54,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
 
     /** @var \Drupal\commerce_order\Entity\OrderInterface $order */
     if ($order = $this->routeMatch->getParameter('commerce_order')) {
+      $store = $order->getStore();
       $currency_code = $order->getTotalPrice()->getCurrencyCode();
     }
     else {
@@ -172,7 +173,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#commerce_mangopay_sensitive' => TRUE
     ];
 
-    $form['payment_details']['currency'] = [
+    $form['payment_details']['currency_code'] = [
       '#type' => 'hidden',
       '#default_value' => $currency_code
     ];

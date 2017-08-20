@@ -158,6 +158,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     $payment_method->card_number = $payment_details['card_alias'];
     $payment_method->card_exp_month = $payment_details['expiration']['month'];
     $payment_method->card_exp_year = $payment_details['expiration']['year'];
+    $payment_method->currency_code = $payment_details['currency_code'];
     $payment_method->setRemoteId($payment_details['card_id']);
     $payment_method->setExpiresTime(CreditCard::calculateExpirationTimestamp($payment_details['expiration']['month'], $payment_details['expiration']['year']));
     $payment_method->save();
