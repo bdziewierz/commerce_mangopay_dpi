@@ -2,6 +2,8 @@
 
 namespace Drupal\commerce_mangopay\Controller;
 
+use DateTime;
+use DateTimeZone;
 use Drupal\commerce_payment\Entity\PaymentGatewayInterface;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
@@ -55,44 +57,74 @@ class MangopayController implements ContainerInjectionInterface {
     // Capture user details passed in the request
     $currency_code = $request->get('currency_code');
     if (empty($currency_code)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Currency code is required'], 400);
     }
 
     $first_name = $request->get('first_name');
     if (empty($first_name)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'First name is required'], 400);
     }
 
     $last_name = $request->get('last_name');
     if (empty($last_name)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Last name is required'], 400);
     }
 
     $email = $request->get('email');
     if (empty($email)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Email is required'], 400);
+    }
+
+    $dob = $request->get('dob');
+    if (empty($dob)) {
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Date of birth is required'], 400);
     }
 
     $address_line1 = $request->get('address_line1');
     $address_line2 = $request->get('address_line2');
     if (empty($address_line1)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Address line 1 is required'], 400);
     }
 
     $city = $request->get('city');
     $postal_code = $request->get('postal_code');
     if (empty($city)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'City is required'], 400);
     }
 
     $country = $request->get('country');
     if (empty($country)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Country is required'], 400);
+    }
+
+    $nationality = $request->get('nationality');
+    if (empty($nationality)) {
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Nationality is required'], 400);
     }
 
     $card_type = $request->get('card_type');
     if (empty($card_type)) {
-      return new JsonResponse(NULL, 400);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Card type is required'], 400);
     }
 
     // TODO: Check if user exists in MANGOPAY
@@ -104,8 +136,8 @@ class MangopayController implements ContainerInjectionInterface {
     $payment_gateway_plugin = $commerce_payment_gateway->getPlugin();
 
     // Create user for payment
-    /// TODO: Fix hardcoded date of birth, please
-    $user = $payment_gateway_plugin->createNaturalUser($first_name, $last_name, strtotime('1980-08-25'), $email, $country, $address_line1, $address_line2, $city, $postal_code, '', '', 'buyer');
+    $dob_object = new DateTime($dob . ' 00:00:00', new DateTimeZone('UTC'));
+    $user = $payment_gateway_plugin->createNaturalUser($first_name, $last_name, $email, $dob_object->format('U'), $nationality, $country, $address_line1, $address_line2, $city, $postal_code, '', '', 'buyer');
 
     // Create Wallet for the user
     $wallet = $payment_gateway_plugin->createWallet($user->Id, $currency_code, "Buyer wallet", "buyer wallet");

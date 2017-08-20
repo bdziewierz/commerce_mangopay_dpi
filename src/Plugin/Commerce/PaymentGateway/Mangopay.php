@@ -223,29 +223,16 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   }
 
   /**
-   * @param $mangopay_api
-   * @param $first_name
-   * @param $last_name
-   * @param $dob
-   * @param $email
-   * @param $country
-   * @param $address_line1
-   * @param $address_line2
-   * @param $city
-   * @param $postal_code
-   * @param string $occupation
-   * @param string $income_range
-   * @param string $tag
-   * @return mixed
+   * {@inheritdoc}
    */
-  public function createNaturalUser($first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '') {
+  public function createNaturalUser($first_name, $last_name, $email, $dob, $nationality, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '') {
     $user = new \MangoPay\UserNatural();
     $user->FirstName = $first_name;
     $user->LastName = $last_name;
     $user->Email = $email;
     $user->CountryOfResidence = $country;
-    $user->Nationality = $country;
-    $user->Birthday = $dob;
+    $user->Nationality = $nationality;
+    $user->Birthday = (int)$dob;
     $user->Occupation = $occupation;
     $user->IncomeRange = $income_range;
     $user->Address = new \MangoPay\Address();
@@ -259,12 +246,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   }
 
   /**
-   * @param $mangopay_api
-   * @param $user_id
-   * @param $currency_code
-   * @param $description
-   * @param string $tag
-   * @return mixed
+   * {@inheritdoc}
    */
   public function createWallet($user_id, $currency_code, $description, $tag = '') {
     $wallet = new \MangoPay\Wallet();
@@ -276,12 +258,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   }
 
   /**
-   * @param $mangopay_api
-   * @param $user_id
-   * @param $currency_code
-   * @param $card_type
-   * @param string $tag
-   * @return mixed
+   * {@inheritdoc}
    */
   public function createCardRegistration($user_id, $currency_code, $card_type, $tag = '') {
     $cardRegister = new \MangoPay\CardRegistration();
@@ -293,13 +270,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   }
 
   /**
-   * @param $user_id
-   * @param $wallet_id
-   * @param $card_id
-   * @param $amount
-   * @param $currency_code
-   * @param $secure_mode_return_url
-   * @return \MangoPay\PayIn
+   * {@inheritdoc}
    */
   public function createDirectPayIn($user_id, $wallet_id, $card_id, $amount, $currency_code, $secure_mode_return_url) {
 
@@ -329,9 +300,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   }
 
   /**
-   *
-   * @param $payin_id
-   * @return \MangoPay\PayIn
+   * {@inheritdoc}
    */
   public function getPayIn($payin_id) {
     return $this->api->PayIns->Get($payin_id);

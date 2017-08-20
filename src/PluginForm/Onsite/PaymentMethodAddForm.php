@@ -6,6 +6,7 @@ use Drupal\commerce_payment\Exception\DeclineException;
 use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PluginForm\PaymentGatewayFormBase;
 use Drupal\Core\Form\FormStateInterface;
+use Drupal\Core\Locale\CountryManager;
 use Drupal\profile\Entity\Profile;
 
 class PaymentMethodAddForm extends PaymentGatewayFormBase {
@@ -203,6 +204,32 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
 
     $form['payment_details']['wallet_id'] = [
       '#type' => 'hidden'
+    ];
+
+    $form['kyc_details'] = [
+      '#parents' => array_merge($form['#parents']),
+      '#type' => 'container',
+      '#payment_method_type' => $payment_method->bundle()
+    ];
+
+    $form['kyc_details']['disclaimer'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'p',
+      '#value' => t('Our payment service provider MANGOPAY SA, which is a EU Licensed and Regulated Financial Institution, requires us to capture our customers\' nationality and date of birth for compliance reasons. This data is passed on to the financial institution and not stored nor used by us for any business activities.'),
+    ];
+
+    $form['kyc_details']['dob'] = [
+      '#type' => 'date',
+      '#title' => t('Date of birth'),
+      '#required' => TRUE,
+    ];
+
+    $countries = CountryManager::getStandardList();
+    $form['kyc_details']['nationality'] = [
+      '#type' => 'select',
+      '#title' => t('Nationality'),
+      '#required' => TRUE,
+      '#options' => $countries,
     ];
 
     /** @var \Drupal\profile\Entity\ProfileInterface $billing_profile */

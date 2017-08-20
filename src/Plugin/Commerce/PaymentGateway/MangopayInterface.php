@@ -17,11 +17,11 @@ interface MangopayInterface extends OffsitePaymentGatewayInterface, SupportsRefu
   public function getApi();
 
   /**
-   * @param $mangopay_api
    * @param $first_name
    * @param $last_name
-   * @param $dob
    * @param $email
+   * @param $dob
+   * @param $nationality
    * @param $country
    * @param $address_line1
    * @param $address_line2
@@ -32,7 +32,7 @@ interface MangopayInterface extends OffsitePaymentGatewayInterface, SupportsRefu
    * @param string $tag
    * @return mixed
    */
-  public function createNaturalUser($first_name, $last_name, $dob, $email, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '');
+  public function createNaturalUser($first_name, $last_name, $email, $dob, $nationality, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '');
 
   /**
    * @param $mangopay_api
