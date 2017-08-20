@@ -64,6 +64,12 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       $currency_code = $store->getDefaultCurrencyCode();
     }
 
+    $email = NULL;
+    $user = \Drupal::currentUser();
+    if ($user->isAuthenticated()) {
+      $email = $user->getEmail();
+    }
+
     // Attach JS script and related settings.
     $form['#attached']['library'][] = 'commerce_payment/payment_method_form';
     $form['#attached']['library'][] = 'commerce_mangopay/register_card';
@@ -71,6 +77,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       'mode' => $mode,
       'baseUrl' => $base_url,
       'clientId' => $client_id,
+      'email' => $email,
       'cardType' => $card_type,
       'currencyCode' => $currency_code,
       'paymentGatewayId' => $payment_gateway_id,

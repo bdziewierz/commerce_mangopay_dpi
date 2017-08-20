@@ -13,7 +13,7 @@ use Symfony\Component\HttpFoundation\RequestStack;
 use Symfony\Component\HttpFoundation\Request;
 
 /**
- * This is a dummy controller for mocking an off-site gateway.
+ * Mongopay controller
  */
 class MangopayController implements ContainerInjectionInterface {
 
@@ -169,7 +169,10 @@ class MangopayController implements ContainerInjectionInterface {
       $payin = $payment_gateway_plugin->createDirectPayIn($user_id, $wallet_id, $card_id, $amount, $currency_code,
         Url::fromRoute('commerce_mangopay.process_secure_mode', ['commerce_payment' => $commerce_payment->id()], ['absolute' => TRUE])->toString());
     } catch(\Exception $e) {
-      return new JsonResponse([]);
+      return new JsonResponse([
+        'status' => 'Critical',
+        'code' => $e->getCode(),
+        'message' => $e->getMessage()], 400);
     }
 
     switch($payin->Status) {

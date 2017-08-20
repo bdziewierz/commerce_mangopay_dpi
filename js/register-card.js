@@ -397,7 +397,9 @@
       postalCode: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-postal-code"]', form).val(),
       city: $('input[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-locality"]', form).val(),
       country: $('select[data-drupal-selector="edit-payment-information-add-payment-method-billing-information-address-0-address-country-code"]', form).val(),
-      email: 'jan@example.com' // TODO: Fetch this form the user object.
+
+      // For logged in users, we have a variable in drupalSettings. Anonymous users must provide it in the field.
+      email: drupalSettings.commerceMangopay.email ? drupalSettings.commerceMangopay.email : $('input[data-drupal-selector="edit-contact-information-email"]', form).val()
     };
   };
 
@@ -490,12 +492,14 @@
           function(errorResponse){
             // TODO: Introduce more descriptive user messages for some more common errors: https://docs.mangopay.com/guide/errors
             Drupal.commerceMangopay.setError(form, null, Drupal.t('We have encountered problems while processing your card. Please confirm the details you entered are correct or try a different card.'));
+            $('html, body').animate({scrollTop: 0}, 200);
             completed(false);
           }
         );
       })
       .fail(function() {
         Drupal.commerceMangopay.setError(form, null, Drupal.t('Unexpected error occurred while processing your card. Please confirm the details you entered are correct or try a different card. If the problem persists, please contact us.'));
+        $('html, body').animate({scrollTop: 0}, 200);
         completed(false);
       });
   };
