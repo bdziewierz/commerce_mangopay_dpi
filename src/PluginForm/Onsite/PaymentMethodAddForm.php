@@ -52,6 +52,17 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
         break;
     }
 
+    /** @var \Drupal\commerce_order\Entity\OrderInterface $order */
+    if ($order = $this->routeMatch->getParameter('commerce_order')) {
+      $currency_code = $order->getTotalPrice()->getCurrencyCode();
+    }
+    else {
+      /** @var \Drupal\commerce_store\StoreStorageInterface $store_storage */
+      $store_storage = \Drupal::entityTypeManager()->getStorage('commerce_store');
+      $store = $store_storage->loadDefault();
+      $currency_code = $store->getDefaultCurrencyCode();
+    }
+
     // Attach JS script and related settings.
     $form['#attached']['library'][] = 'commerce_payment/payment_method_form';
     $form['#attached']['library'][] = 'commerce_mangopay/register_card';
@@ -60,11 +71,11 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       'baseUrl' => $base_url,
       'clientId' => $client_id,
       'cardType' => $card_type,
-      'currencyCode' => 'EUR', // TODO: Get from order?
+      'currencyCode' => $currency_code,
       'paymentGatewayId' => $payment_gateway_id,
     ];
 
-    // Attach container for displaying status and error messages via java script
+    // Attach container for displaying status and error messages with javascript.
     // Waiting patiently for: https://www.drupal.org/node/77245 but in the meantime...
     $form['status'] = [
       '#theme' => 'status_messages',
@@ -84,7 +95,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
     $form['payment_details'] = [
       '#parents' => array_merge($form['#parents'], ['payment_details']),
       '#type' => 'container',
-      '#payment_method_type' => $payment_method->bundle(),
+      '#payment_method_type' => $payment_method->bundle()
     ];
 
     // Build a month select list that shows months with a leading zero.
@@ -101,26 +112,29 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
     }
 
     $form['payment_details']['#attributes']['class'][] = 'credit-card-form';
-    // Placeholder for the detected card type. Set by validateCreditCardForm().
-    $form['payment_details']['type'] = [
-      '#type' => 'hidden',
-      '#value' => '',
-    ];
+
     $form['payment_details']['number'] = [
       '#type' => 'textfield',
       '#title' => t('Card number'),
       '#attributes' => ['autocomplete' => 'off'],
       '#maxlength' => 19,
       '#size' => 20,
-      '#required' => FALSE, // From the perspective of FAPI this field is not required.
-      '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
+      '#required' => FALSE, // From the perspective of FAPI this field is not required. We only use it in JavaScript.
+      /**
+       * Mark as sensitive - Can only be transferred to MANGOPAY directly
+       * @see commerce_mangopay_preprocess_input
+       * @see commerce_mangopay_preprocess_form_element
+       */
+      '#commerce_mangopay_sensitive' => TRUE
     ];
+
     $form['payment_details']['expiration'] = [
       '#type' => 'container',
       '#attributes' => [
         'class' => ['credit-card-form__expiration'],
       ],
     ];
+
     $form['payment_details']['expiration']['month'] = [
       '#type' => 'select',
       '#title' => t('Month'),
@@ -128,11 +142,13 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#default_value' => date('m'),
       '#required' => TRUE
     ];
+
     $form['payment_details']['expiration']['divider'] = [
       '#type' => 'item',
       '#title' => '',
       '#markup' => '<span class="credit-card-form__divider">/</span>',
     ];
+
     $form['payment_details']['expiration']['year'] = [
       '#type' => 'select',
       '#title' => t('Year'),
@@ -140,14 +156,25 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#default_value' => $current_year,
       '#required' => TRUE
     ];
+
     $form['payment_details']['security_code'] = [
       '#type' => 'textfield',
       '#title' => t('CVV'),
       '#attributes' => ['autocomplete' => 'off'],
       '#maxlength' => 4,
       '#size' => 4,
-      '#required' => FALSE, // From the perspective of FAPI this field is not required.
-      '#commerce_mangopay_sensitive' => TRUE // Mark as sensitive - Can only be transferred to MANGOPAY directly
+      '#required' => FALSE, // From the perspective of FAPI this field is not required. We only use it in JavaScript.
+      /**
+       * Mark as sensitive - Can only be transferred to MANGOPAY directly
+       * @see commerce_mangopay_preprocess_input
+       * @see commerce_mangopay_preprocess_form_element
+       */
+      '#commerce_mangopay_sensitive' => TRUE
+    ];
+
+    $form['payment_details']['currency'] = [
+      '#type' => 'hidden',
+      '#default_value' => $currency_code
     ];
 
     $form['payment_details']['card_type'] = [
@@ -175,14 +202,6 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       'type' => 'customer',
       'uid' => $payment_method->getOwnerId(),
     ]);
-    if ($order = $this->routeMatch->getParameter('commerce_order')) {
-      $store = $order->getStore();
-    }
-    else {
-      /** @var \Drupal\commerce_store\StoreStorageInterface $store_storage */
-      $store_storage = \Drupal::entityTypeManager()->getStorage('commerce_store');
-      $store = $store_storage->loadDefault();
-    }
 
     $form['billing_information'] = [
       '#parents' => array_merge($form['#parents'], ['billing_information']),

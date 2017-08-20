@@ -414,19 +414,15 @@
 
     // Validate the form and inputs
     Drupal.commerceMangopay.clearErrors();
-
     if (!Drupal.commerceMangopay.validateRequired(form)) {
       hasErrors = true;
     }
-
     if (!Drupal.commerceMangopay.validateCard(form)) {
       hasErrors = true;
     }
-
     if (!Drupal.commerceMangopay.validateCvx(form)) {
       hasErrors = true;
     }
-
     if (!Drupal.commerceMangopay.validateExpiry(form)) {
       hasErrors = true;
     }

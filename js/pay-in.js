@@ -30,7 +30,6 @@
                 window.location.replace(drupalSettings.commerceMangopay.exceptionUrl); // TODO: Provide custom exception URL, which actually sets correct message.
                 break;
             }
-            console.log(payInResponse);
           })
           .fail(function(payInError) {
             // TODO: Handle error - https://docs.mangopay.com/guide/errors
