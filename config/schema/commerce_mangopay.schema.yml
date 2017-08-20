@@ -7,4 +7,6 @@ commerce_payment.commerce_payment_gateway.plugin.onsite:
     client_pass:
       type: string
       label: 'Client Pass'
-
+    tag:
+      type: string
+      label: 'Tag'

@@ -35,6 +35,7 @@ use Symfony\Component\HttpFoundation\Request;
  * )
  */
 class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
+  const STANDARD_TAG = 'drupal commerce';
 
   /**
    * @var \MangoPay\MangoPayApi
@@ -48,7 +49,14 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   public function getApi() {
     return $this->api;
   }
-  
+
+  /**
+   * @return mixed
+   */
+  public function getTag() {
+    return $this->getConfiguration()['tag'];
+  }
+
   /**
    * {@inheritdoc}
    */
@@ -83,6 +91,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     return [
       'client_id' => '',
       'client_pass' => '',
+      'tag' => 'commerce_mangopay',
     ] + parent::defaultConfiguration();
   }
 
@@ -111,6 +120,14 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
       '#required' => TRUE,
     ];
 
+    $form['tag'] = [
+      '#type' => 'textfield',
+      '#title' => $this->t('Tag'),
+      '#description' => $this->t('Standard tag to mark all MANGOPAY resources with. Used to identify resources \'owned\' by this payment gateway. Please note that once set, it\'s not recommended to change this value.'),
+      '#default_value' => $this->configuration['tag'],
+      '#required' => TRUE,
+    ];
+
     return $form;
   }
 
@@ -124,6 +141,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
       $values = $form_state->getValue($form['#parents']);
       $this->configuration['client_id'] = $values['client_id'];
       $this->configuration['client_pass'] = $values['client_pass'];
+      $this->configuration['tag'] = $values['tag'];
     }
   }
 
@@ -140,15 +158,11 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
       }
     }
 
-    // We use Mangopay's User Id and Wallet Id combination as Remote Customer Id
-    $remote_customer_id = $payment_details['card_id'] . ':' . $payment_details['wallet_id'];
+    // Set remote User Id on the user object.
     $owner = $payment_method->getOwner();
     if ($owner && $owner->isAuthenticated()) {
-      $current_remote_customer_id = $this->getRemoteCustomerId($owner);
-      if (empty($current_remote_customer_id) || $current_remote_customer_id != $remote_customer_id) {
-        $this->setRemoteCustomerId($owner, $remote_customer_id);
-        $owner->save();
-      }
+      $this->setRemoteCustomerId($owner, $payment_details['user_id']);
+      $owner->save();
     }
 
     // Set relevant details on payment method object.
@@ -248,6 +262,13 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   /**
    * {@inheritdoc}
    */
+  public function getUser($user_id) {
+    return $this->api->Users->Get($user_id);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
   public function createWallet($user_id, $currency_code, $description, $tag = '') {
     $wallet = new \MangoPay\Wallet();
     $wallet->Owners = [$user_id];
@@ -255,6 +276,13 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     $wallet->Currency = $currency_code;
     $wallet->Tag = $tag;
     return $this->api->Wallets->Create($wallet);
+  }
+
+  /**
+   * {@inheritdoc}
+   */
+  public function getWallets($user_id) {
+    return $this->api->Users->GetWallets($user_id);
   }
 
   /**
@@ -287,7 +315,9 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
 
     // Payment type as CARD
     // TODO: Do we have to make a call here? Why not storing this?
+    // TODO: Shall we validate in case card no longer exists or is expired?
     $card = $this->api->Cards->Get($card_id);
+
     $pay_in->PaymentDetails = new \MangoPay\PayInPaymentDetailsCard();
     $pay_in->PaymentDetails->CardType = $card->CardType;
     $pay_in->PaymentDetails->CardId = $card->Id;
@@ -305,4 +335,6 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
   public function getPayIn($payin_id) {
     return $this->api->PayIns->Get($payin_id);
   }
+
+
 }

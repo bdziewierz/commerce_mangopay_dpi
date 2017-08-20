@@ -2,12 +2,15 @@
 
 namespace Drupal\commerce_mangopay\Controller;
 
+use CommerceGuys\Intl\Currency\Currency;
 use DateTime;
 use DateTimeZone;
+use Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\Mangopay;
 use Drupal\commerce_payment\Entity\PaymentGatewayInterface;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
 use Drupal\Core\Url;
+use Drupal\user\Entity\User;
 use Symfony\Component\DependencyInjection\ContainerInterface;
 use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\RedirectResponse;
@@ -18,6 +21,8 @@ use Symfony\Component\HttpFoundation\Request;
  * Mongopay controller
  */
 class MangopayController implements ContainerInjectionInterface {
+
+
 
   /**
    * The current request.
@@ -62,6 +67,14 @@ class MangopayController implements ContainerInjectionInterface {
         'message' => 'Currency code is required'], 400);
     }
 
+    /** @var \Drupal\commerce_price\Entity\Currency $currency */
+    $currency = \Drupal::entityTypeManager()->getStorage('commerce_currency')->load($currency_code);
+    if (empty($currency)) {
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Currency code is invalid'], 400);
+    }
+
     $first_name = $request->get('first_name');
     if (empty($first_name)) {
       return new JsonResponse([
@@ -89,6 +102,7 @@ class MangopayController implements ContainerInjectionInterface {
         'status' => 'Critical',
         'message' => 'Date of birth is required'], 400);
     }
+    $dob = new DateTime($dob . ' 00:00:00', new DateTimeZone('UTC'));
 
     $address_line1 = $request->get('address_line1');
     $address_line2 = $request->get('address_line2');
@@ -127,28 +141,99 @@ class MangopayController implements ContainerInjectionInterface {
         'message' => 'Card type is required'], 400);
     }
 
-    // TODO: Check if user exists in MANGOPAY
-    // TODO: if not, create it
-    // TODO: if yes, retrieve it
-    // TODO: Handle errors - https://docs.mangopay.com/guide/errors
-
     /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $commerce_payment_gateway->getPlugin();
+    $account = \Drupal::currentUser();
+    $user = NULL;
+    $mangopay_user = NULL;
 
-    // Create user for payment
-    $dob_object = new DateTime($dob . ' 00:00:00', new DateTimeZone('UTC'));
-    $user = $payment_gateway_plugin->createNaturalUser($first_name, $last_name, $email, $dob_object->format('U'), $nationality, $country, $address_line1, $address_line2, $city, $postal_code, '', '', 'buyer');
+    // Load user if authenticated.
+    if ($account->isAuthenticated()) {
+      $user = User::load($account->id());
+    }
 
-    // Create Wallet for the user
-    $wallet = $payment_gateway_plugin->createWallet($user->Id, $currency_code, "Buyer wallet", "buyer wallet");
+    // Check if the currently logged in user has already Remote Id set.
+    // If yes, try to fetch the MANGOPAY user from the API.
+    if ($user) {
+      /** @var \Drupal\commerce\Plugin\Field\FieldType\RemoteIdFieldItemListInterface $remote_ids */
+      $remote_ids = $user->get('commerce_remote_id');
+      $mangopay_remote_id = $remote_ids->getByProvider($commerce_payment_gateway->id() . '|' . $payment_gateway_plugin->getMode());
+      if (!empty($mangopay_remote_id)) {
+        try {
+          $mangopay_user = $payment_gateway_plugin->getUser($mangopay_remote_id);
+        } catch(\Exception $e) {
+          \Drupal::logger('commerce_mangopay')->notice(sprintf('Unable to retrieve MANGOPAY user %s while registering a card', $mangopay_remote_id));
+        }
+      }
+    }
+
+    // IF no MANGOPAY user retrieved, try to create it.
+    if (!$mangopay_user) {
+      // Create user for payment if there is no Remote Id already stored in Drupal.
+      try {
+        $mangopay_user = $payment_gateway_plugin->createNaturalUser($first_name, $last_name, $email, $dob->format('U'), $nationality, $country, $address_line1, $address_line2, $city, $postal_code, '', '', $payment_gateway_plugin->getTag());
+      } catch(\Exception $e) {
+        \Drupal::logger('commerce_mangopay')->error('Unable to create MANGOPAY user while registering a card');
+        return new JsonResponse([
+          'status' => 'Critical',
+          'message' => 'Unable to create MANGOPAY user'], 500);
+      }
+
+      // Set MANGOPAY User Id on the user object if the account is logged in.
+      if ($user) {
+        /** @var \Drupal\commerce\Plugin\Field\FieldType\RemoteIdFieldItemListInterface $remote_ids */
+        $remote_ids = $user->get('commerce_remote_id');
+        $remote_ids->setByProvider($commerce_payment_gateway->id() . '|' . $payment_gateway_plugin->getMode(), $mangopay_user->Id);
+        $user->save();
+      }
+    }
+
+    // Check if user already has an active wallet for Drupal Commerce with specified currency.
+    // If yes, use it. Otherwise, create a new one.
+    $mangopay_wallet = NULL;
+    try {
+      $wallets = $payment_gateway_plugin->getWallets($mangopay_user->Id);
+      foreach($wallets as $wallet) {
+        if ($wallet->Tag == $payment_gateway_plugin->getTag()
+          && $wallet->Currency == $currency_code) {
+          $mangopay_wallet = $wallet;
+          continue;
+        }
+      }
+    } catch(\Exception $e) {
+      \Drupal::logger('commerce_mangopay')->notice(sprintf('Unable to retrieve MANGOPAY wallets for user %s', $mangopay_user->Id));
+    }
+    
+    // If yes, use it, otherwise create a new one.
+    if (!$mangopay_wallet) {
+      try {
+        $mangopay_wallet = $payment_gateway_plugin->createWallet($mangopay_user->Id, $currency_code, sprintf('%s wallet', $currency->getName()), $payment_gateway_plugin->getTag());
+      } catch (\Exception $e) {
+        \Drupal::logger('commerce_mangopay')
+          ->error(sprintf('Unable to create MANGOPAY wallet for user %s while registering a card', $mangopay_user->Id));
+        return new JsonResponse([
+          'status' => 'Critical',
+          'message' => 'Unable to create MANGOPAY wallet'
+        ], 500);
+      }
+    }
 
     // Initiate card registration
-    $card_register = $payment_gateway_plugin->createCardRegistration($user->Id, $currency_code, $card_type, "buyer card");
+    try {
+      $card_register = $payment_gateway_plugin->createCardRegistration($mangopay_user->Id, $currency_code, $card_type, $payment_gateway_plugin->getTag());
+    } catch(\Exception $e) {
+      \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to register card for user %s and wallet %s', $mangopay_user->Id, $mangopay_wallet->Id));
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'Unable to register card'], 500);
+    }
 
+    // TODO: Handle errors better. Maybe some are recoverable? - https://docs.mangopay.com/guide/errors
+    
     // Send response to the browser
     return new JsonResponse([
-        'userId' => $user->Id,
-        'walletId' => $wallet->Id,
+        'userId' => $mangopay_user->Id,
+        'walletId' => $mangopay_wallet->Id,
         'cardRegistrationURL' => $card_register->CardRegistrationURL,
         'preregistrationData' => $card_register->PreregistrationData,
         'cardRegistrationId' => $card_register->Id,
@@ -201,10 +286,11 @@ class MangopayController implements ContainerInjectionInterface {
       $payin = $payment_gateway_plugin->createDirectPayIn($user_id, $wallet_id, $card_id, $amount, $currency_code,
         Url::fromRoute('commerce_mangopay.process_secure_mode', ['commerce_payment' => $commerce_payment->id()], ['absolute' => TRUE])->toString());
     } catch(\Exception $e) {
+      \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to create Direct PayIn for card id %s', $card_id));
       return new JsonResponse([
         'status' => 'Critical',
         'code' => $e->getCode(),
-        'message' => $e->getMessage()], 400);
+        'message' => $e->getMessage()], 500);
     }
 
     switch($payin->Status) {
@@ -251,10 +337,11 @@ class MangopayController implements ContainerInjectionInterface {
 
       default:
         $commerce_payment->delete();
+        \Drupal::logger('commerce_mangopay')->error(sprintf('Unknown critical error occurred while creating PayIn for card %s', $card_id));
         return new JsonResponse([
           'status' => 'Critical',
           'code' => $payin->ResultCode,
-          'message' => 'Unknown critical error'], 400);
+          'message' => 'Unknown critical error'], 500);
     }
   }
 

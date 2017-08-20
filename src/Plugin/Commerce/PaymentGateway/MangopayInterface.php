@@ -17,6 +17,14 @@ interface MangopayInterface extends OffsitePaymentGatewayInterface, SupportsRefu
   public function getApi();
 
   /**
+   * Return tag for use with this payment gateway.
+   * All resources created in MANGOPAY will use this tag.
+   *
+   * @return mixed
+   */
+  public function getTag();
+
+  /**
    * @param $first_name
    * @param $last_name
    * @param $email
@@ -35,6 +43,12 @@ interface MangopayInterface extends OffsitePaymentGatewayInterface, SupportsRefu
   public function createNaturalUser($first_name, $last_name, $email, $dob, $nationality, $country, $address_line1, $address_line2, $city, $postal_code, $occupation = '', $income_range = '', $tag = '');
 
   /**
+   * @param $user_id
+   * @return mixed
+   */
+  public function getUser($user_id);
+
+  /**
    * @param $mangopay_api
    * @param $user_id
    * @param $currency_code
@@ -43,6 +57,12 @@ interface MangopayInterface extends OffsitePaymentGatewayInterface, SupportsRefu
    * @return mixed
    */
   public function createWallet($user_id, $currency_code, $description, $tag = '');
+
+  /**
+   * @param $user_id
+   * @return mixed
+   */
+  public function getWallets($user_id);
 
   /**
    * @param $mangopay_api
