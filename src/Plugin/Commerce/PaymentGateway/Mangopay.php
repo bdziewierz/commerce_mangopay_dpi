@@ -6,6 +6,7 @@ use Drupal\commerce_order\Entity\OrderInterface;
 use Drupal\commerce_payment\CreditCard;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\commerce_payment\Entity\PaymentMethodInterface;
+use Drupal\commerce_payment\Exception\PaymentGatewayException;
 use Drupal\commerce_payment\PaymentMethodTypeManager;
 use Drupal\commerce_payment\PaymentTypeManager;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OffsitePaymentGatewayBase;
@@ -187,14 +188,30 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     // Delete the local entity.
     $payment_method->delete();
 
-    // TODO: Instruct MANGOPAY API to remove credit card? Is this possible?
+    // TODO: Instruct MANGOPAY API to remove the credit card? Is this possible?
   }
 
   /**
    * {@inheritdoc}
    */
   public function onReturn(OrderInterface $order, Request $request) {
-    // TODO: Check if we have a correct payment made.
+    $payment_id = $request->get('payment_id');
+    if (empty($payment_id)) {
+      throw new PaymentGatewayException('Payment Id not passed from the gateway.');
+    }
+
+    // Check if any of the payments associated with the order matches the
+    // payment id passed from the gateway and confirm that it's completed.
+    $payments = \Drupal::entityTypeManager()->getStorage('commerce_payment')->loadMultipleForOrder($order);
+    /** @var \Drupal\commerce_payment\Entity\PaymentInterface $payment */
+    foreach($payments as $payment) {
+      if ($payment->getRemoteId() == $payment_id && $payment->getState()->getName() == 'completed') {
+        return;
+      }
+    }
+
+    // If not valid payments found, throw an exception.
+    throw new PaymentGatewayException('Payment has not been processed correctly.');
   }
 
   /**

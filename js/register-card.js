@@ -126,8 +126,6 @@
 
   /**
    * Based on https://github.com/braintree/credit-card-type
-   * TODO: Replace the code validating cards with some kind of third party library
-   * i.e. https://github.com/braintree/card-validator
    *
    * @param cardNumber
    * @returns String
@@ -451,7 +449,6 @@
     // Get user, wallet and card preregistration data.
     var billingInformationInput = Drupal.commerceMangopay.getBillingInformationInput(form);
     var kycInput = Drupal.commerceMangopay.getKYCInput(form);
-    console.log(kycInput);
     $.ajax({
         method: "POST",
         url: "/commerce-mangopay/preregister-card/" + drupalSettings.commerceMangopay.paymentGatewayId,
@@ -507,15 +504,14 @@
             form.submit();
           },
           function(errorResponse){
-            // TODO: Introduce more descriptive user messages for some more common errors: https://docs.mangopay.com/guide/errors
-            Drupal.commerceMangopay.setError(form, null, Drupal.t('We have encountered problems while processing your card. Please confirm the details you entered are correct or try a different card.'));
+            Drupal.commerceMangopay.setError(form, null, Drupal.t('An error occurred while processing your card. Please confirm the details you entered are correct or try a different card.'));
             $('html, body').animate({scrollTop: 0}, 200);
             completed(false);
           }
         );
       })
       .fail(function() {
-        Drupal.commerceMangopay.setError(form, null, Drupal.t('Unexpected error occurred while processing your card. Please confirm the details you entered are correct or try a different card. If the problem persists, please contact us.'));
+        Drupal.commerceMangopay.setError(form, null, Drupal.t('An unexpected error occurred while processing your card. Please confirm the details you entered are correct or try a different card. If the problem persists, please contact us.'));
         $('html, body').animate({scrollTop: 0}, 200);
         completed(false);
       });

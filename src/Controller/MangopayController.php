@@ -162,7 +162,7 @@ class MangopayController implements ContainerInjectionInterface {
         try {
           $mangopay_user = $payment_gateway_plugin->getUser($mangopay_remote_id);
         } catch(\Exception $e) {
-          \Drupal::logger('commerce_mangopay')->notice(sprintf('Unable to retrieve MANGOPAY user %s while registering a card', $mangopay_remote_id));
+          \Drupal::logger('commerce_mangopay')->notice(sprintf('Unable to retrieve MANGOPAY user %s while registering a card: %s: %s', $mangopay_remote_id, $e->getCode(), $e->getMessage()));
         }
       }
     }
@@ -173,7 +173,7 @@ class MangopayController implements ContainerInjectionInterface {
       try {
         $mangopay_user = $payment_gateway_plugin->createNaturalUser($first_name, $last_name, $email, $dob->format('U'), $nationality, $country, $address_line1, $address_line2, $city, $postal_code, '', '', $payment_gateway_plugin->getTag());
       } catch(\Exception $e) {
-        \Drupal::logger('commerce_mangopay')->error('Unable to create MANGOPAY user while registering a card');
+        \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to create MANGOPAY user while registering a card: %s: %s', $e->getCode(), $e->getMessage()));
         return new JsonResponse([
           'status' => 'Critical',
           'message' => 'Unable to create MANGOPAY user'], 500);
@@ -210,7 +210,7 @@ class MangopayController implements ContainerInjectionInterface {
         $mangopay_wallet = $payment_gateway_plugin->createWallet($mangopay_user->Id, $currency_code, sprintf('%s wallet', $currency->getName()), $payment_gateway_plugin->getTag());
       } catch (\Exception $e) {
         \Drupal::logger('commerce_mangopay')
-          ->error(sprintf('Unable to create MANGOPAY wallet for user %s while registering a card', $mangopay_user->Id));
+          ->error(sprintf('Unable to create MANGOPAY wallet for user %s while registering a card: %s: %s', $mangopay_user->Id, $e->getCode(), $e->getMessage()));
         return new JsonResponse([
           'status' => 'Critical',
           'message' => 'Unable to create MANGOPAY wallet'
@@ -222,7 +222,7 @@ class MangopayController implements ContainerInjectionInterface {
     try {
       $card_register = $payment_gateway_plugin->createCardRegistration($mangopay_user->Id, $currency_code, $card_type, $payment_gateway_plugin->getTag());
     } catch(\Exception $e) {
-      \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to register card for user %s and wallet %s', $mangopay_user->Id, $mangopay_wallet->Id));
+      \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to register card for user %s and wallet %s: %s: %s', $mangopay_user->Id, $mangopay_wallet->Id, $e->getCode(), $e->getMessage()));
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'Unable to register card'], 500);
@@ -250,9 +250,13 @@ class MangopayController implements ContainerInjectionInterface {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    */
   public function payIn(PaymentInterface $commerce_payment, Request $request) {
+    $unexpected_error_message = t('Unexpected error has occurred while processing your transaction.  No funds were taken from your card. Please confirm your card details are correct or try a different card.');
+    $rejected_error_message = t('The transaction has been rejected. No funds were taken from your card. Please confirm your card details are correct or try a different card.');
+
     // Validate payment state. We allow only NEW payments here.
     $state = $commerce_payment->getState()->value;
     if (!in_array($state, ['new'])) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'Payment has been already processed'], 400);
@@ -261,11 +265,13 @@ class MangopayController implements ContainerInjectionInterface {
     // Validate payment method
     $payment_method = $commerce_payment->getPaymentMethod();
     if (empty($payment_method)) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'No payment method specified'], 400);
     }
     if ($payment_method->isExpired()) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'Payment method expired'], 400);
@@ -286,7 +292,8 @@ class MangopayController implements ContainerInjectionInterface {
       $payin = $payment_gateway_plugin->createDirectPayIn($user_id, $wallet_id, $card_id, $amount, $currency_code,
         Url::fromRoute('commerce_mangopay.process_secure_mode', ['commerce_payment' => $commerce_payment->id()], ['absolute' => TRUE])->toString());
     } catch(\Exception $e) {
-      \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to create Direct PayIn for card id %s', $card_id));
+      drupal_set_message($unexpected_error_message, 'error');
+      \Drupal::logger('commerce_mangopay')->error(sprintf('Unable to create Direct PayIn for card %s: %s: %s', $card_id, $e->getCode(), $e->getMessage()));
       return new JsonResponse([
         'status' => 'Critical',
         'code' => $e->getCode(),
@@ -296,6 +303,10 @@ class MangopayController implements ContainerInjectionInterface {
     switch($payin->Status) {
       case \MangoPay\PayInStatus::Failed:
         $commerce_payment->delete();
+        // TODO: Display more descriptive messages here for the transaction errors: https://docs.mangopay.com/guide/errors
+        // TODO: On some responses, shall we remove payment methods which are permanently failing? i.e. card becomes automatically inactive when failed for the first time it's tried.
+        drupal_set_message($rejected_error_message, 'error');
+        \Drupal::logger('commerce_mangopay')->warning(sprintf('Pay In Failure: %s: %s', $payin->ResultCode, $payin->ResultMessage));
         return new JsonResponse([
           'status' => 'Failed',
           'code' => $payin->ResultCode,
@@ -314,11 +325,15 @@ class MangopayController implements ContainerInjectionInterface {
             'message' => $payin->ResultMessage,
             'secureModeUrl' => $payin->ExecutionDetails->SecureModeRedirectURL]);
         }
-
-        return new JsonResponse([
-          'status' => 'Created',
-          'code' => $payin->ResultCode,
-          'message' => $payin->ResultMessage]);
+        else {
+          $commerce_payment->delete();
+          drupal_set_message($unexpected_error_message, 'error');
+          \Drupal::logger('commerce_mangopay')->warning(sprintf('No SecureModeRedirectURL provided for Created response: %s: %s', $payin->ResultCode, $payin->ResultMessage));
+          return new JsonResponse([
+            'status' => 'Critical',
+            'code' => $payin->ResultCode,
+            'message' => 'Unknown critical error'], 500);
+        }
 
         break;
 
@@ -337,7 +352,8 @@ class MangopayController implements ContainerInjectionInterface {
 
       default:
         $commerce_payment->delete();
-        \Drupal::logger('commerce_mangopay')->error(sprintf('Unknown critical error occurred while creating PayIn for card %s', $card_id));
+        drupal_set_message($unexpected_error_message, 'error');
+        \Drupal::logger('commerce_mangopay')->error(sprintf('Pay In Error: %s: %s', $payin->ResultCode, $payin->ResultMessage));
         return new JsonResponse([
           'status' => 'Critical',
           'code' => $payin->ResultCode,
@@ -353,10 +369,13 @@ class MangopayController implements ContainerInjectionInterface {
    * @return \Symfony\Component\HttpFoundation\JsonResponse
    */
   public function processSecureMode(PaymentInterface $commerce_payment, Request $request) {
+    $unexpected_error_message = t('Unexpected error has occurred while processing your transaction.  No funds were taken from your card. Please confirm your card details are correct or try a different card.');
+    $rejected_error_message = t('The transaction has been rejected. No funds were taken from your card. Please confirm your card details are correct or try a different card.');
 
     // Validate payment state. We allow only NEW payments here.
     $state = $commerce_payment->getState()->value;
     if (!in_array($state, ['new'])) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'Payment has been already processed'], 400);
@@ -365,11 +384,13 @@ class MangopayController implements ContainerInjectionInterface {
     // Validate payment method
     $payment_method = $commerce_payment->getPaymentMethod();
     if (empty($payment_method)) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'No payment method specified'], 400);
     }
     if ($payment_method->isExpired()) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'Payment method expired'], 400);
@@ -377,6 +398,7 @@ class MangopayController implements ContainerInjectionInterface {
 
     // Validate Remote ID exists
     if (empty($commerce_payment->getRemoteId())) {
+      drupal_set_message($unexpected_error_message, 'error');
       return new JsonResponse([
         'status' => 'Critical',
         'message' => 'Payment missing remote Id'], 400);
@@ -390,7 +412,11 @@ class MangopayController implements ContainerInjectionInterface {
     try {
       $payin = $payment_gateway_plugin->getPayIn($commerce_payment->getRemoteId());
     } catch(\Exception $e) {
-      return new JsonResponse([]);
+      drupal_set_message($unexpected_error_message, 'error');
+      \Drupal::logger('commerce_mangopay')->error(sprintf('Unknown critical error occurred while fetching pay in object %s', $commerce_payment->getRemoteId()));
+      return new JsonResponse([
+        'status' => 'Critical',
+        'message' => 'MANGOPAY Pay In object not found'], 500);
     }
 
     // Build redirect URLs
@@ -402,7 +428,7 @@ class MangopayController implements ContainerInjectionInterface {
     $success_redirect_url = Url::fromRoute('commerce_payment.checkout.return', [
       'commerce_order' => $order->id(),
       'step' => 'payment',
-    ], ['absolute' => TRUE])->toString();
+    ], ['absolute' => TRUE, 'query' => ['payment_id' => $payin->Id]])->toString();
 
     $failure_redirect_url = Url::fromRoute('commerce_checkout.form', [
       'commerce_order' => $order->id(),
@@ -411,7 +437,6 @@ class MangopayController implements ContainerInjectionInterface {
 
     // Redirect accordingly.
     switch($payin->Status) {
-      // Success, mark payment as completed and continue
       case \MangoPay\PayInStatus::Succeeded:
         // Mark payment's state as completed.
         $commerce_payment->setState('completed');
@@ -421,13 +446,20 @@ class MangopayController implements ContainerInjectionInterface {
         break;
 
       case \MangoPay\PayInStatus::Failed:
-      case \MangoPay\PayInStatus::Created:
+        // TODO: Display more descriptive messages here for the transaction errors: https://docs.mangopay.com/guide/errors
+        // TODO: On some responses, shall we remove payment methods which are permanently failing? i.e. card becomes automatically inactive when failed for the first time it's tried.
         $commerce_payment->delete();
+
+        drupal_set_message($rejected_error_message, 'error');
+        \Drupal::logger('commerce_mangopay')->warning(sprintf('Pay In Failure (3DS): %s: %s', $payin->ResultCode, $payin->ResultMessage));
         return new RedirectResponse($failure_redirect_url);
         break;
 
       default:
         $commerce_payment->delete();
+
+        \Drupal::logger('commerce_mangopay')->error(sprintf('Pay In Error (3DS): %s: %s', $payin->ResultCode, $payin->ResultMessage));
+        drupal_set_message($unexpected_error_message, 'error');
         return new RedirectResponse($failure_redirect_url);
     }
   }

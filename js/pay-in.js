@@ -13,31 +13,22 @@
             switch(payInResponse.status) {
               case 'Succeeded':
                 // In case of successful payment, We redirect to the return URL directly.
-                window.location.replace(drupalSettings.commerceMangopay.returnUrl);
+                window.location.replace(drupalSettings.commerceMangopay.returnUrl + "?payment_id=" + payInResponse.paymentId);
                 break;
               case 'Created':
                 // In case of created response with 3DS return URL, We redirect to 3DS URL directly.
-                if (payInResponse.secureModeUrl != undefined) {
-                  window.location.replace(payInResponse.secureModeUrl);
-                }
-                else {
-                  window.location.replace(drupalSettings.commerceMangopay.exceptionUrl); // TODO: Provide custom exception URL, which actually sets correct message.
-                }
+                window.location.replace(payInResponse.secureModeUrl);
                 break;
               case 'Failed':
               case 'Critical':
-                // In case of successful payment, We redirect to return URL directly.
-                window.location.replace(drupalSettings.commerceMangopay.exceptionUrl); // TODO: Provide custom exception URL, which actually sets correct message.
+                // In case of failed payment, We redirect to exception URL.
+                window.location.replace(drupalSettings.commerceMangopay.exceptionUrl);
                 break;
-            }
 
-            
-            console.log(payInResponse);
+            }
           })
           .fail(function(payInError) {
-            // TODO: Handle error - https://docs.mangopay.com/guide/errors
-            window.location.replace(drupalSettings.commerceMangopay.exceptionUrl); // TODO: Provide custom exception URL, which actually sets correct message.
-            console.log(payInError);
+            window.location.replace(drupalSettings.commerceMangopay.exceptionUrl);
           });
       });
 

@@ -28,7 +28,6 @@ class PaymentOffsiteForm extends PaymentGatewayFormBase {
     $payment->save();
 
     // Check if user has java script enabled.
-
     $form['payin'] = [
       '#type' => 'container',
       '#tag' => 'div'
@@ -36,7 +35,7 @@ class PaymentOffsiteForm extends PaymentGatewayFormBase {
 
     $form['payin']['message'] = [
       '#type' => 'markup',
-      '#markup' => t('Please wait while your payment is processed. Please do not close the browser window nor navigate to other pages.'),
+      '#markup' => t('Please wait while your payment is processed. Please do not close the browser window nor navigate to the  pages.'),
     ];
 
     $form['#attached']['library'][] = 'commerce_mangopay/pay_in';
