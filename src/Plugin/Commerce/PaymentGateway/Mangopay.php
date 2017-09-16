@@ -202,7 +202,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
 
     // Check if any of the payments associated with the order matches the
     // payment id passed from the gateway and confirm that it's completed.
-    $payments = \Drupal::entityTypeManager()->getStorage('commerce_payment')->loadMultipleForOrder($order);
+    $payments = \Drupal::entityTypeManager()->getStorage('commerce_payment')->loadMultipleByOrder($order);
     /** @var \Drupal\commerce_payment\Entity\PaymentInterface $payment */
     foreach($payments as $payment) {
       if ($payment->getRemoteId() == $payment_id && $payment->getState()->getName() == 'completed') {
