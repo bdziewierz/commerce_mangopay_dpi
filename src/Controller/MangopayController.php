@@ -21,9 +21,6 @@ use Symfony\Component\HttpFoundation\Request;
  * Mongopay controller
  */
 class MangopayController implements ContainerInjectionInterface {
-
-
-
   /**
    * The current request.
    *

@@ -387,8 +387,8 @@
    */
   Drupal.commerceMangopay.getKYCInput = function(form) {
     return {
-      nationality: $('select[data-drupal-selector="edit-payment-information-add-payment-method-nationality"]', form).val(),
-      dob: $('input[data-drupal-selector="edit-payment-information-add-payment-method-dob"]', form).val()
+      nationality: $('[data-drupal-selector="edit-payment-information-add-payment-method-nationality"]', form).val(),
+      dob: $('[data-drupal-selector="edit-payment-information-add-payment-method-dob"]', form).val()
     };
   };
 
@@ -449,6 +449,7 @@
     // Get user, wallet and card preregistration data.
     var billingInformationInput = Drupal.commerceMangopay.getBillingInformationInput(form);
     var kycInput = Drupal.commerceMangopay.getKYCInput(form);
+    console.log(kycInput);
     $.ajax({
         method: "POST",
         url: "/commerce-mangopay/preregister-card/" + drupalSettings.commerceMangopay.paymentGatewayId,

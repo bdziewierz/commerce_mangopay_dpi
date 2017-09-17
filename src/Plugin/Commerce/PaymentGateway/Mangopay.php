@@ -117,8 +117,14 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
       '#type' => 'password',
       '#title' => $this->t('Client Password'),
       '#description' => $this->t('Please enter your MANGOPAY client password applicable to the environment (mode) you\'re using.'),
-      '#default_value' => $this->configuration['client_pass'],
-      '#required' => TRUE,
+      '#default_value' => $this->configuration['client_pass']
+    ];
+
+    $form['simple_kyc'] = [
+      '#type' => 'checkbox',
+      '#title' => $this->t('Simplified KYC'),
+      '#description' => $this->t('Simplified Know Your Customer information gathering for marketplaces.'),
+      '#default_value' => $this->configuration['simple_kyc'],
     ];
 
     $form['tag'] = [
@@ -141,7 +147,10 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     if (!$form_state->getErrors()) {
       $values = $form_state->getValue($form['#parents']);
       $this->configuration['client_id'] = $values['client_id'];
-      $this->configuration['client_pass'] = $values['client_pass'];
+      if (!empty($values['client_pass'])) {
+        $this->configuration['client_pass'] = $values['client_pass'];
+      }
+      $this->configuration['simple_kyc'] = $values['simple_kyc'];
       $this->configuration['tag'] = $values['tag'];
     }
   }

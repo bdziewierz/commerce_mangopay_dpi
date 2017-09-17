@@ -7,6 +7,9 @@ commerce_payment.commerce_payment_gateway.plugin.onsite:
     client_pass:
       type: string
       label: 'Client Pass'
+    simple_kyc:
+      type: boolean
+      label: 'Simplified KYC'
     tag:
       type: string
       label: 'Tag'
