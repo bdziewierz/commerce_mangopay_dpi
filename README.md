@@ -1,4 +1,4 @@
-Commerce MANGOPAY
-=================
+Commerce MANGOPAY Direct Pay In
+===============================
 
-MANGOPAY gateway for Drupal Commerce 2.0
+MANGOPAY Direct PayIn payment gateway for Drupal Commerce 2.0

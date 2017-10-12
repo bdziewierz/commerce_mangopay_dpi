@@ -2,13 +2,12 @@
   'use strict';
   Drupal.behaviors.commerceMangopayPayIn = {
     attach: function (context, settings) {
-      // Capture submit button. We want to do things with MANGOPAY card registration js kit before submitting to Drupal.
       $('div[data-drupal-selector="edit-payment-process-offsite-payment-payin"]:not(".js-processed")', context).addClass('js-processed').each(function() {
         $.ajax({
-            method: "POST",
-            url: "/commerce-mangopay/pay-in/" + drupalSettings.commerceMangopay.paymentId,
-            data: {}
-          })
+          method: "POST",
+          url: "/commerce-mangopay/pay-in/" + drupalSettings.commerceMangopay.paymentId,
+          data: {}
+        })
           .done(function(payInResponse) {
             switch(payInResponse.status) {
               case 'Succeeded':

@@ -100,6 +100,12 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
         t('Please make sure your browser is up to date and JavaScript is not disabled.')]],
       '#status_headings' => ['error' => t('Error message')]];
 
+    $form['hide_status'] = [
+      '#type' => 'html_tag',
+      '#tag' => 'script',
+      '#value' => 'document.getElementsByClassName("js-messages")[0].style.display = "none"',
+    ];
+
     $form['#tree'] = TRUE;
     $form['payment_details'] = [
       '#parents' => array_merge($form['#parents'], ['payment_details']),
@@ -138,7 +144,9 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
     ];
 
     $form['payment_details']['expiration'] = [
-      '#type' => 'container',
+      '#type' => 'item',
+      '#title' => t('Expiry date'),
+      '#required' => TRUE,
       '#attributes' => [
         'class' => ['credit-card-form__expiration'],
       ],
@@ -146,21 +154,14 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
 
     $form['payment_details']['expiration']['month'] = [
       '#type' => 'select',
-      '#title' => t('Month'),
       '#options' => $months,
       '#default_value' => date('m'),
       '#required' => TRUE
     ];
 
-    $form['payment_details']['expiration']['divider'] = [
-      '#type' => 'item',
-      '#title' => '',
-      '#markup' => '<span class="credit-card-form__divider">/</span>',
-    ];
 
     $form['payment_details']['expiration']['year'] = [
       '#type' => 'select',
-      '#title' => t('Year'),
       '#options' => $years,
       '#default_value' => $current_year,
       '#required' => TRUE
@@ -172,6 +173,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#attributes' => ['autocomplete' => 'off'],
       '#maxlength' => 4,
       '#size' => 4,
+      '#placeholder' => t('Three digit number on the back of your card'),
       '#required' => FALSE, // From the perspective of FAPI this field is not required. We only use it in JavaScript.
       /**
        * Mark as sensitive - Can only be transferred to MANGOPAY directly
