@@ -92,6 +92,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
     return [
       'client_id' => '',
       'client_pass' => '',
+      'simple_kyc' => FALSE,
       'tag' => 'commerce_mangopay',
     ] + parent::defaultConfiguration();
   }

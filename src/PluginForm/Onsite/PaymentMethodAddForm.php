@@ -174,6 +174,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#maxlength' => 4,
       '#size' => 4,
       '#placeholder' => t('Three digit number on the back of your card'),
+      '#description' => t('Three digit number on the back of your card'),
       '#required' => FALSE, // From the perspective of FAPI this field is not required. We only use it in JavaScript.
       /**
        * Mark as sensitive - Can only be transferred to MANGOPAY directly

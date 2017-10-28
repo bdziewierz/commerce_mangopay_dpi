@@ -553,10 +553,14 @@
 
           // Prevent multiple clicks
           submitButton.attr("disabled", true);
+          submitButton.append(Drupal.theme.ajaxThrobber());
 
           // Call register card
           Drupal.commerceMangopay.registerCard(form, function(success) {
-            if (!success) { submitButton.removeAttr("disabled"); }
+            if (!success) {
+              submitButton.removeAttr("disabled");
+              submitButton.children('.ajax-throbber').remove();
+            }
           });
         });
       }
