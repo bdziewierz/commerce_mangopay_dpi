@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway;
+namespace Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentGateway;
 
 use Drupal\commerce_order\Entity\OrderInterface;
 use Drupal\commerce_payment\CreditCard;
@@ -21,15 +21,15 @@ use Symfony\Component\HttpFoundation\Request;
  * Provides the Off-site Secure Mode (3DS) redirect
  *
  * @CommercePaymentGateway(
- *   id = "commerce_mangopay",
+ *   id = "commerce_mangopay_dpi",
  *   label = "MANGOPAY",
  *   display_label = "MANGOPAY",
  *   forms = {
- *     "add-payment-method" = "Drupal\commerce_mangopay\PluginForm\Onsite\PaymentMethodAddForm",
- *     "offsite-payment" = "Drupal\commerce_mangopay\PluginForm\OffsiteRedirect\PaymentOffsiteForm",
+ *     "add-payment-method" = "Drupal\commerce_mangopay_dpi\PluginForm\Onsite\PaymentMethodAddForm",
+ *     "offsite-payment" = "Drupal\commerce_mangopay_dpi\PluginForm\OffsiteRedirect\PaymentOffsiteForm",
  *   },
  *   modes = {"sandbox" = "Sandbox", "production" = "Production"},
- *   payment_method_types = {"commerce_mangopay_credit_card"},
+ *   payment_method_types = {"commerce_mangopay_dpi_credit_card"},
  *   credit_card_types = {
  *     "amex", "dinersclub", "discover", "jcb", "maestro", "mastercard", "visa",
  *   },
@@ -93,7 +93,7 @@ class Mangopay extends OffsitePaymentGatewayBase implements MangopayInterface {
       'client_id' => '',
       'client_pass' => '',
       'simple_kyc' => FALSE,
-      'tag' => 'commerce_mangopay',
+      'tag' => 'commerce_mangopay_dpi',
     ] + parent::defaultConfiguration();
   }
 

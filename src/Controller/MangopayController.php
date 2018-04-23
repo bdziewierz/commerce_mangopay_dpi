@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_mangopay\Controller;
+namespace Drupal\commerce_mangopay_dpi\Controller;
 
 use CommerceGuys\Intl\Currency\Currency;
 use DateTime;

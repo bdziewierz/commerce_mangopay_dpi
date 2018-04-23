@@ -5,7 +5,7 @@
  *
  * @param $variables
  */
-function commerce_mangopay_preprocess_form_element(&$variables) {
+function commerce_mangopay_dpi_preprocess_form_element(&$variables) {
   if (!empty($variables['element']['#commerce_mangopay_sensitive'])) {
     // Fool the theme that sensitive fields are required.
     // In reality we never allow values from sensitive fields to reach Drupal

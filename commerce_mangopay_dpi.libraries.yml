@@ -7,7 +7,7 @@ register_card:
     js/register-card.js: {}
   dependencies:
     - core/jquery
-    - commerce_mangopay/mangopay.cardregistration_js_kit
+    - commerce_mangopay_dpi/mangopay.cardregistration_js_kit
 
 pay_in:
   js:

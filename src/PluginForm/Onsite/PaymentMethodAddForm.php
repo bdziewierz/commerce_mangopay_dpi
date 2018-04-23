@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_mangopay\PluginForm\Onsite;
+namespace Drupal\commerce_mangopay_dpi\PluginForm\Onsite;
 
 use Drupal\commerce_payment\Exception\DeclineException;
 use Drupal\commerce_payment\Exception\PaymentGatewayException;
@@ -73,7 +73,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
 
     // Attach JS script and related settings.
     $form['#attached']['library'][] = 'commerce_payment/payment_method_form';
-    $form['#attached']['library'][] = 'commerce_mangopay/register_card';
+    $form['#attached']['library'][] = 'commerce_mangopay_dpi/register_card';
     $form['#attached']['drupalSettings']['commerceMangopay'] = [
       'mode' => $mode,
       'baseUrl' => $base_url,
@@ -137,10 +137,10 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#required' => FALSE, // From the perspective of FAPI this field is not required. We only use it in JavaScript.
       /**
        * Mark as sensitive - Can only be transferred to MANGOPAY directly
-       * @see commerce_mangopay_preprocess_input
-       * @see commerce_mangopay_preprocess_form_element
+       * @see commerce_mangopay_dpi_preprocess_input
+       * @see commerce_mangopay_dpi_preprocess_form_element
        */
-      '#commerce_mangopay_sensitive' => TRUE
+      '#commerce_mangopay_dpi_sensitive' => TRUE
     ];
 
     $form['payment_details']['expiration'] = [
@@ -178,10 +178,10 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#required' => FALSE, // From the perspective of FAPI this field is not required. We only use it in JavaScript.
       /**
        * Mark as sensitive - Can only be transferred to MANGOPAY directly
-       * @see commerce_mangopay_preprocess_input
-       * @see commerce_mangopay_preprocess_form_element
+       * @see commerce_mangopay_dpi_preprocess_input
+       * @see commerce_mangopay_dpi_preprocess_form_element
        */
-      '#commerce_mangopay_sensitive' => TRUE
+      '#commerce_mangopay_dpi_sensitive' => TRUE
     ];
 
     $form['payment_details']['currency_code'] = [
@@ -270,7 +270,7 @@ class PaymentMethodAddForm extends PaymentGatewayFormBase {
       '#attributes' => [
         'class' => ['powered-by-mangopay'],
         'style' => 'width: 100%',
-        'src' => '/' . drupal_get_path('module', 'commerce_mangopay') . '/images/powered-by-mangopay.png']
+        'src' => '/' . drupal_get_path('module', 'commerce_mangopay_dpi') . '/images/powered-by-mangopay.png']
     ];
 
     return $form;
