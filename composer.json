@@ -1,7 +1,7 @@
 {
   "name": "drupal/commerce_mangopay_dpi",
   "type": "drupal-module",
-  "description": "Drupal MANGOPAY direct pay-in for Drupal Commerce 2.0",
+  "description": "Drupal MANGOPAY Direct Pay-In for Drupal Commerce 2.0",
   "license": "GPL-2.0+",
   "repositories": [
     {

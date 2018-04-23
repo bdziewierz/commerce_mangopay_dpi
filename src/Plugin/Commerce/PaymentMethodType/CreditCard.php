@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_mangopay\Plugin\Commerce\PaymentMethodType;
+namespace Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentMethodType;
 
 use Drupal\commerce\BundleFieldDefinition;
 use Drupal\commerce_payment\Entity\PaymentMethodInterface;

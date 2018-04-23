@@ -5,7 +5,7 @@ namespace Drupal\commerce_mangopay_dpi\Controller;
 use CommerceGuys\Intl\Currency\Currency;
 use DateTime;
 use DateTimeZone;
-use Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\Mangopay;
+use Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentGateway\Mangopay;
 use Drupal\commerce_payment\Entity\PaymentGatewayInterface;
 use Drupal\commerce_payment\Entity\PaymentInterface;
 use Drupal\Core\DependencyInjection\ContainerInjectionInterface;
@@ -138,7 +138,7 @@ class MangopayController implements ContainerInjectionInterface {
         'message' => 'Card type is required'], 400);
     }
 
-    /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
+    /** @var \Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $commerce_payment_gateway->getPlugin();
     $account = \Drupal::currentUser();
     $user = NULL;
@@ -282,7 +282,7 @@ class MangopayController implements ContainerInjectionInterface {
     $wallet_id = $payment_method->wallet_id->value;
 
     $payment_gateway = $commerce_payment->getPaymentGateway();
-    /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
+    /** @var \Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $payment_gateway->getPlugin();
 
     try {
@@ -402,7 +402,7 @@ class MangopayController implements ContainerInjectionInterface {
     }
 
     $payment_gateway = $commerce_payment->getPaymentGateway();
-    /** @var \Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
+    /** @var \Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentGateway\MangopayInterface $payment_gateway_plugin */
     $payment_gateway_plugin = $payment_gateway->getPlugin();
 
     // Get Remote PayIn object and check its status.

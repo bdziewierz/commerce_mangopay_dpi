@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_mangopay\PluginForm\OffsiteRedirect;
+namespace Drupal\commerce_mangopay_dpi\PluginForm\OffsiteRedirect;
 
 use Drupal\commerce_payment\PluginForm\PaymentGatewayFormBase;
 use Drupal\Core\Form\FormStateInterface;

@@ -1,6 +1,6 @@
 <?php
 
-namespace Drupal\commerce_mangopay\Plugin\Commerce\PaymentGateway;
+namespace Drupal\commerce_mangopay_dpi\Plugin\Commerce\PaymentGateway;
 
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\OffsitePaymentGatewayInterface;
 use Drupal\commerce_payment\Plugin\Commerce\PaymentGateway\SupportsRefundsInterface;
