@@ -20,7 +20,7 @@ function commerce_mangopay_dpi_preprocess_form_element(&$variables) {
  *
  * @param $variables
  */
-function commerce_mangopay_preprocess_input(&$variables) {
+function commerce_mangopay_dpi_preprocess_input(&$variables) {
   if (!empty($variables['element']['#commerce_mangopay_sensitive'])) {
 
     // Clear any form of identification from sensitive fields,
@@ -45,7 +45,7 @@ function commerce_mangopay_preprocess_input(&$variables) {
  *
  * @param $variables
  */
-function commerce_mangopay_preprocess_status_messages(&$variables) {
+function commerce_mangopay_dpi_preprocess_status_messages(&$variables) {
   // Specifically add js-messages class so that the box can be picked up with javascript.
   $variables['attributes']['class'][] = 'js-messages';
 }
